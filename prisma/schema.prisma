@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // YouTube/Storage Tokens
+  youtubeAccessToken  String?  @map("youtube_access_token")
+  youtubeRefreshToken String?  @map("youtube_refresh_token")
+  youtubeTokenExpiry  DateTime? @map("youtube_token_expiry")
+
+  reports             Report[]
+
+  @@map("users")
+}
+
+model Report {
+  id          String   @id @default(cuid())
+  title       String?  @default("New Bug Report")
+  description String?
+  videoUrl    String   @map("video_url")
+  consoleLogs Json?    @map("console_logs")
+  networkLogs Json?    @map("network_logs")
+  
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id])
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("reports")
+}
