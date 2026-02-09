@@ -31,14 +31,16 @@ model User {
 }
 
 model Report {
-  id          String   @id @default(cuid())
-  title       String?  @default("New Bug Report")
+  id          String     @id @default(cuid())
+  title       String?    @default("New Bug Report")
   description String?
-  videoUrl    String   @map("video_url")
-  storageKey  String?  @map("storage_key")
-  fileSize    BigInt   @default(0) @map("file_size")
-  consoleLogs Json?    @map("console_logs")
-  networkLogs Json?    @map("network_logs")
+  type        ReportType @default(VIDEO) @map("type")
+  videoUrl    String?    @map("video_url")
+  imageUrl    String?    @map("image_url")
+  storageKey  String?    @map("storage_key")
+  fileSize    BigInt     @default(0) @map("file_size")
+  consoleLogs Json?      @map("console_logs")
+  networkLogs Json?      @map("network_logs")
   
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id])
@@ -47,4 +49,9 @@ model Report {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("reports")
+}
+
+enum ReportType {
+  VIDEO
+  SCREENSHOT
 }

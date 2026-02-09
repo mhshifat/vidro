@@ -34,9 +34,11 @@ export async function POST(req: Request) {
         if (!file) {
             return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
         }
-        if (!file.type.startsWith("video/")) {
-            return NextResponse.json({ error: "Only video files are accepted." }, { status: 400 });
+        if (!file.type.startsWith("video/") && !file.type.startsWith("image/")) {
+            return NextResponse.json({ error: "Only video and image files are accepted." }, { status: 400 });
         }
+
+        const isImage = file.type.startsWith("image/");
 
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
@@ -103,12 +105,13 @@ export async function POST(req: Request) {
         }
 
         // ── 5. Upload to storage provider ────────────────────
-        const key = `recordings/${userId}/${Date.now()}-${file.name}`;
+        const folder = isImage ? 'screenshots' : 'recordings';
+        const key = `${folder}/${userId}/${Date.now()}-${file.name}`;
         const provider = StorageService.getProvider();
 
         let result: { url: string; key: string };
         try {
-            result = await provider.upload(buffer, key, file.type || "video/webm");
+            result = await provider.upload(buffer, key, file.type || (isImage ? "image/png" : "video/webm"));
         } catch (uploadErr: any) {
             console.error("Storage provider upload failed:", uploadErr);
 
@@ -122,7 +125,7 @@ export async function POST(req: Request) {
             }
             if (msg.includes("Invalid") || msg.includes("Unsupported")) {
                 return NextResponse.json(
-                    { error: "File format not supported. Please upload a WebM video.", code: "INVALID_FORMAT" },
+                    { error: "File format not supported.", code: "INVALID_FORMAT" },
                     { status: 400 }
                 );
             }
@@ -144,6 +147,7 @@ export async function POST(req: Request) {
             url: result.url,
             key: result.key,
             fileSize: buffer.byteLength,
+            isImage,
         });
     } catch (error: any) {
         console.error("Upload failed:", error);

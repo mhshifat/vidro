@@ -15,12 +15,17 @@ function serializeReport(report: any) {
 const createReportSchema = z.object({
     title: z.string().optional(),
     description: z.string().optional(),
-    videoUrl: z.string(),
+    type: z.enum(['VIDEO', 'SCREENSHOT']).optional().default('VIDEO'),
+    videoUrl: z.string().optional(),
+    imageUrl: z.string().optional(),
     storageKey: z.string().optional(),
     fileSize: z.number().optional(),
     consoleLogs: z.any().optional(),
     networkLogs: z.any().optional(),
-});
+}).refine(
+    (data) => data.videoUrl || data.imageUrl,
+    { message: 'Either videoUrl or imageUrl must be provided' }
+);
 
 const updateReportSchema = z.object({
     title: z.string().min(1, "Title cannot be empty").max(200).optional(),
@@ -78,9 +83,11 @@ export async function POST(req: Request) {
 
         const report = await prisma.report.create({
             data: {
-                title: data.title || "Untitled Bug Report",
+                title: data.title || (data.type === 'SCREENSHOT' ? 'Screenshot' : 'Untitled Bug Report'),
                 description: data.description,
-                videoUrl: data.videoUrl,
+                type: data.type,
+                videoUrl: data.videoUrl ?? null,
+                imageUrl: data.imageUrl ?? null,
                 storageKey: data.storageKey,
                 fileSize: data.fileSize ?? 0,
                 consoleLogs: data.consoleLogs ?? [],

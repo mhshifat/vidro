@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +132,15 @@ interface NetworkLogEntry {
 interface RecordingPayload {
     id: string;
     videoUrl: string;
+    consoleLogs: ConsoleLogEntry[];
+    networkLogs: NetworkLogEntry[];
+    timestamp: number;
+}
+
+interface ScreenshotPayload {
+    id: string;
+    imageUrl: string;
+    title: string;
     consoleLogs: ConsoleLogEntry[];
     networkLogs: NetworkLogEntry[];
     timestamp: number;
@@ -555,7 +564,17 @@ function VideoPlayer({ src }: { src: string }) {
 /*  Main Page                                                      */
 /* ──────────────────────────────────────────────────────────────── */
 export default function NewReportPage() {
+    return (
+        <Suspense fallback={<LoadingScreen />}>
+            <NewReportPageInner />
+        </Suspense>
+    );
+}
+
+function NewReportPageInner() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isScreenshot = searchParams.get('type') === 'screenshot';
 
     // Persist helpers (defined before state so we can use for initialization)
     const saveToLocal = useCallback((list: RecordingPayload[]) => {
@@ -576,7 +595,8 @@ export default function NewReportPage() {
     const [recordings, setRecordings] = useState<RecordingPayload[]>(persisted);
     const [recording, setRecording] = useState<RecordingPayload | null>(persisted[0] ?? null);
     const [loading, setLoading] = useState(persisted.length === 0);
-    const [title, setTitle] = useState("Unlabeled Recording");
+    const [screenshotData, setScreenshotData] = useState<ScreenshotPayload | null>(null);
+    const [title, setTitle] = useState(isScreenshot ? "Unlabeled Screenshot" : "Unlabeled Recording");
     const [description, setDescription] = useState("");
     const [activeLogTab, setActiveLogTab] = useState("console");
     const [saving, setSaving] = useState(false);
@@ -605,6 +625,14 @@ export default function NewReportPage() {
                     return updated;
                 });
                 setRecording(incoming);
+                setLoading(false);
+            }
+
+            // Screenshot from extension
+            if (event.data?.type === "TRANSFER_SCREENSHOT") {
+                const incoming = event.data.payload as ScreenshotPayload;
+                setScreenshotData(incoming);
+                setTitle(incoming.title || "Unlabeled Screenshot");
                 setLoading(false);
             }
 
@@ -660,17 +688,22 @@ export default function NewReportPage() {
     };
 
     const handleSaveReport = async () => {
-        if (!recording || saving) return;
+        const source = screenshotData || recording;
+        if (!source || saving) return;
         setSaving(true);
         setSaveError(null);
 
         try {
             // 1. Convert data URL to a File blob
-            const res = await fetch(recording.videoUrl);
+            const isImage = !!screenshotData;
+            const dataUrl = isImage ? screenshotData!.imageUrl : (recording as RecordingPayload).videoUrl;
+            const res = await fetch(dataUrl);
             const blob = await res.blob();
-            const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'video/webm' });
+            const file = isImage
+                ? new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
+                : new File([blob], `recording-${Date.now()}.webm`, { type: 'video/webm' });
 
-            // 2. Upload video to server
+            // 2. Upload file to server
             const formData = new FormData();
             formData.append('file', file);
 
@@ -702,20 +735,21 @@ export default function NewReportPage() {
                 }
             }
 
-            const { url: videoUrl, key: storageKey, fileSize } = await uploadRes.json();
+            const { url: uploadedUrl, key: storageKey, fileSize } = await uploadRes.json();
 
             // 3. Create the report
             const reportRes = await fetch('/api/report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: title || 'Untitled Bug Report',
+                    title: title || (isImage ? 'Screenshot' : 'Untitled Bug Report'),
                     description,
-                    videoUrl,
+                    type: isImage ? 'SCREENSHOT' : 'VIDEO',
+                    ...(isImage ? { imageUrl: uploadedUrl } : { videoUrl: uploadedUrl }),
                     storageKey,
                     fileSize,
-                    consoleLogs: recording.consoleLogs,
-                    networkLogs: recording.networkLogs,
+                    consoleLogs: source.consoleLogs,
+                    networkLogs: source.networkLogs,
                 }),
             });
 
@@ -727,8 +761,12 @@ export default function NewReportPage() {
             }
             const report = await reportRes.json();
 
-            // 4. Clean up local recording
-            handleDiscardRecording(recording.id);
+            // 4. Clean up
+            if (screenshotData) {
+                setScreenshotData(null);
+            } else {
+                handleDiscardRecording(recording!.id);
+            }
 
             // 5. Navigate to saved report
             router.push(`/report/${report.id}`);
@@ -739,17 +777,22 @@ export default function NewReportPage() {
         }
     };
 
-    if (loading && !recording) return <LoadingScreen />;
+    if (loading && !recording && !screenshotData) return <LoadingScreen />;
 
-    if (!recording) {
+    // Determine the active source (screenshot or recording)
+    const activeSource = screenshotData || recording;
+
+    if (!activeSource) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="flex flex-col items-center gap-6 animate-in fade-in duration-500">
                     <span className="opacity-30">{Icons.inbox}</span>
                     <div className="text-center space-y-2">
-                        <h2 className="text-lg font-bold tracking-tight">No Recordings</h2>
+                        <h2 className="text-lg font-bold tracking-tight">{isScreenshot ? 'No Screenshot' : 'No Recordings'}</h2>
                         <p className="text-sm text-muted-foreground max-w-xs">
-                            Start a recording from the Jam Clone extension, then come back here.
+                            {isScreenshot
+                                ? 'Take a screenshot from the Jam Clone extension, then come back here.'
+                                : 'Start a recording from the Jam Clone extension, then come back here.'}
                         </p>
                     </div>
                     <Button variant="outline" onClick={() => router.push('/dashboard')}>
@@ -760,9 +803,9 @@ export default function NewReportPage() {
         );
     }
 
-    const consoleErrors = recording.consoleLogs?.filter((l) => l.type === "error").length ?? 0;
-    const consoleWarnings = recording.consoleLogs?.filter((l) => l.type === "warn").length ?? 0;
-    const failedRequests = recording.networkLogs?.filter((l) => l.status >= 400).length ?? 0;
+    const consoleErrors = activeSource.consoleLogs?.filter((l) => l.type === "error").length ?? 0;
+    const consoleWarnings = activeSource.consoleLogs?.filter((l) => l.type === "warn").length ?? 0;
+    const failedRequests = activeSource.networkLogs?.filter((l) => l.status >= 400).length ?? 0;
 
     return (
         <TooltipProvider delayDuration={200}>
@@ -799,8 +842,10 @@ export default function NewReportPage() {
                                         className="gap-1.5"
                                         onClick={() => {
                                             const a = document.createElement('a');
-                                            a.href = recording.videoUrl;
-                                            a.download = `${title.trim() || 'recording'}.webm`;
+                                            a.href = screenshotData ? screenshotData.imageUrl : recording!.videoUrl;
+                                            a.download = screenshotData
+                                                ? `${title.trim() || 'screenshot'}.png`
+                                                : `${title.trim() || 'recording'}.webm`;
                                             document.body.appendChild(a);
                                             a.click();
                                             document.body.removeChild(a);
@@ -810,26 +855,34 @@ export default function NewReportPage() {
                                         Download
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Download video</TooltipContent>
+                                <TooltipContent>Download {screenshotData ? 'screenshot' : 'video'}</TooltipContent>
                             </Tooltip>
-                            <Button variant="ghost" size="sm" onClick={() => handleDiscardRecording(recording.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Button variant="ghost" size="sm" onClick={() => {
+                                if (screenshotData) {
+                                    setScreenshotData(null);
+                                } else {
+                                    handleDiscardRecording(recording!.id);
+                                }
+                            }} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                                 Discard
                             </Button>
-                            <Button size="sm" onClick={handleSaveReport} disabled={saving} className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30">
-                                {saving ? (
-                                    <>
-                                        <svg className="size-4 mr-1 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                        </svg>
-                                        Saving…
-                                    </>
-                                ) : (
-                                    <>
-                                        {Icons.heart}
-                                        Save &amp; Share
-                                    </>
-                                )}
-                            </Button>
+                            {!screenshotData && (
+                                <Button size="sm" onClick={handleSaveReport} disabled={saving} className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30">
+                                    {saving ? (
+                                        <>
+                                            <svg className="size-4 mr-1 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            Saving…
+                                        </>
+                                    ) : (
+                                        <>
+                                            {Icons.heart}
+                                            Save &amp; Share
+                                        </>
+                                    )}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </header>
@@ -841,7 +894,7 @@ export default function NewReportPage() {
                             <svg className="size-4 shrink-0 text-primary animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
-                            <span className="flex-1 text-primary font-medium">Uploading your recording — please do not close or leave this page.</span>
+                            <span className="flex-1 text-primary font-medium">Uploading your {screenshotData ? 'screenshot' : 'recording'} — please do not close or leave this page.</span>
                         </div>
                     </div>
                 )}
@@ -863,11 +916,11 @@ export default function NewReportPage() {
                     </div>
                 )}
 
-                {/* ── Recording Selector (only when multiple) ─── */}
-                {recordings.length > 1 && (
+                {/* ── Recording Selector (only when multiple videos) ─── */}
+                {!screenshotData && recordings.length > 1 && (
                     <RecordingSelector
                         recordings={recordings}
-                        activeId={recording.id}
+                        activeId={recording!.id}
                         onSelect={handleSelectRecording}
                         onDiscard={handleDiscardRecording}
                     />
@@ -876,9 +929,19 @@ export default function NewReportPage() {
                 {/* ── Content ─────────────────────────────────────── */}
                 <main className="mx-auto max-w-screen-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                     
-                    {/* ── Full-width Video Player ─────────────────── */}
+                    {/* ── Full-width Media Preview ─────────────────── */}
                     <div className="w-full border-b">
-                        <VideoPlayer src={recording.videoUrl} />
+                        {screenshotData ? (
+                            <div className="w-full bg-black/5 dark:bg-white/5 flex items-center justify-center p-4">
+                                <img
+                                    src={screenshotData.imageUrl}
+                                    alt="Screenshot preview"
+                                    className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg"
+                                />
+                            </div>
+                        ) : (
+                            <VideoPlayer src={recording!.videoUrl} />
+                        )}
                     </div>
 
                     {/* ── Bento Grid below video ──────────────────── */}
@@ -888,7 +951,7 @@ export default function NewReportPage() {
                         <StatCard
                             className="lg:col-span-3"
                             label="Console Events"
-                            value={recording.consoleLogs?.length ?? 0}
+                            value={activeSource.consoleLogs?.length ?? 0}
                             icon={Icons.console}
                             detail={
                                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
@@ -901,7 +964,7 @@ export default function NewReportPage() {
                         <StatCard
                             className="lg:col-span-3"
                             label="Network Requests"
-                            value={recording.networkLogs?.length ?? 0}
+                            value={activeSource.networkLogs?.length ?? 0}
                             icon={Icons.network}
                             detail={
                                 <div className="flex gap-1.5 mt-1.5">
@@ -918,9 +981,9 @@ export default function NewReportPage() {
                                     {Icons.clock}
                                 </div>
                                 <div className="min-w-0">
-                                    <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Recorded</p>
+                                    <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">{screenshotData ? 'Captured' : 'Recorded'}</p>
                                     <p className="text-sm font-bold tabular-nums tracking-tight truncate">
-                                        {new Date(recording.timestamp).toLocaleString("en-US", {
+                                        {new Date(activeSource.timestamp).toLocaleString("en-US", {
                                             month: "short", day: "numeric",
                                             hour: "2-digit", minute: "2-digit", hour12: true,
                                         })}
@@ -955,12 +1018,12 @@ export default function NewReportPage() {
                                             <TabsTrigger value="console" className="text-xs gap-1.5 px-3">
                                                 {Icons.console}
                                                 Console
-                                                <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{recording.consoleLogs?.length ?? 0}</Badge>
+                                                <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{activeSource.consoleLogs?.length ?? 0}</Badge>
                                             </TabsTrigger>
                                             <TabsTrigger value="network" className="text-xs gap-1.5 px-3">
                                                 {Icons.network}
                                                 Network
-                                                <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{recording.networkLogs?.length ?? 0}</Badge>
+                                                <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{activeSource.networkLogs?.length ?? 0}</Badge>
                                             </TabsTrigger>
                                         </TabsList>
                                     </div>
@@ -969,8 +1032,8 @@ export default function NewReportPage() {
                                 <TabsContent value="console" className="m-0">
                                     <ScrollArea className="h-80">
                                         <div className="divide-y divide-border/50">
-                                            {recording.consoleLogs?.length === 0 && <EmptyState message="No console events captured" />}
-                                            {recording.consoleLogs?.map((log, i) => (
+                                            {activeSource.consoleLogs?.length === 0 && <EmptyState message="No console events captured" />}
+                                            {activeSource.consoleLogs?.map((log, i) => (
                                                 <div
                                                     key={i}
                                                     className="group flex items-start gap-3 px-5 py-2 text-xs font-mono transition-colors hover:bg-muted/40 animate-in fade-in slide-in-from-left-1 duration-200"
@@ -999,8 +1062,8 @@ export default function NewReportPage() {
                                             <span>URL</span>
                                         </div>
                                         <div className="divide-y divide-border/50">
-                                            {recording.networkLogs?.length === 0 && <EmptyState message="No network requests captured" />}
-                                            {recording.networkLogs?.map((req, i) => (
+                                            {activeSource.networkLogs?.length === 0 && <EmptyState message="No network requests captured" />}
+                                            {activeSource.networkLogs?.map((req, i) => (
                                                 <div
                                                     key={i}
                                                     className="group grid grid-cols-[70px_56px_1fr] gap-4 px-5 py-2 text-xs font-mono transition-colors hover:bg-muted/40 animate-in fade-in slide-in-from-left-1 duration-200"

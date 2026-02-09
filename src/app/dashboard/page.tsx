@@ -30,6 +30,12 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
     ),
+    screenshot: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <circle cx="12" cy="13" r="3" />
+        </svg>
+    ),
     play: (
         <svg viewBox="0 0 24 24" fill="currentColor" className="size-8">
             <path d="M8 5.14v14l11-7-11-7z" />
@@ -77,7 +83,9 @@ interface ReportSummary {
     id: string;
     title: string | null;
     description: string | null;
-    videoUrl: string;
+    type: 'VIDEO' | 'SCREENSHOT';
+    videoUrl: string | null;
+    imageUrl: string | null;
     storageKey: string | null;
     fileSize: number | null;
     consoleLogs: unknown[] | null;
@@ -338,27 +346,52 @@ export default function DashboardPage() {
                                         className="group py-0 overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-2"
                                         style={{ animationDelay: `${Math.min(index * 60, 600)}ms`, animationFillMode: "backwards" }}
                                     >
-                                        {/* Video Thumbnail */}
+                                        {/* Video/Image Thumbnail */}
                                         <Link href={`/report/${report.id}`} className="block relative">
                                             <div className="aspect-video bg-muted relative overflow-hidden">
-                                                <video
-                                                    src={report.videoUrl}
-                                                    className="w-full h-full object-cover"
-                                                    muted
-                                                    preload="metadata"
-                                                    onLoadedData={(e) => {
-                                                        // Seek to 1s for a better thumbnail
-                                                        (e.target as HTMLVideoElement).currentTime = 1;
-                                                    }}
-                                                />
+                                                {report.type === 'SCREENSHOT' && report.imageUrl ? (
+                                                    <img
+                                                        src={report.imageUrl}
+                                                        alt={report.title || 'Screenshot'}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : report.videoUrl ? (
+                                                    <video
+                                                        src={report.videoUrl}
+                                                        className="w-full h-full object-cover"
+                                                        muted
+                                                        preload="metadata"
+                                                        onLoadedData={(e) => {
+                                                            (e.target as HTMLVideoElement).currentTime = 1;
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                                                        {Icons.inbox}
+                                                    </div>
+                                                )}
                                                 {/* Hover overlay */}
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
                                                     <div className="size-14 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300 border border-white/20">
-                                                        <svg viewBox="0 0 24 24" fill="white" className="size-6 ml-0.5">
-                                                            <path d="M8 5.14v14l11-7-11-7z" />
-                                                        </svg>
+                                                        {report.type === 'SCREENSHOT' ? (
+                                                            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} className="size-6">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg viewBox="0 0 24 24" fill="white" className="size-6 ml-0.5">
+                                                                <path d="M8 5.14v14l11-7-11-7z" />
+                                                            </svg>
+                                                        )}
                                                     </div>
                                                 </div>
+                                                {/* Type badge */}
+                                                {report.type === 'SCREENSHOT' && (
+                                                    <div className="absolute top-2 left-2">
+                                                        <Badge className="text-[10px] h-5 px-1.5 bg-black/50 text-white border-white/20 backdrop-blur-sm">
+                                                            Screenshot
+                                                        </Badge>
+                                                    </div>
+                                                )}
                                             </div>
                                         </Link>
 
@@ -381,13 +414,16 @@ export default function DashboardPage() {
                                                         <button
                                                             onClick={async (e) => {
                                                                 e.preventDefault();
+                                                                const mediaUrl = report.type === 'SCREENSHOT' ? report.imageUrl : report.videoUrl;
+                                                                if (!mediaUrl) return;
                                                                 try {
-                                                                    const res = await fetch(report.videoUrl);
+                                                                    const res = await fetch(mediaUrl);
                                                                     const blob = await res.blob();
                                                                     const url = URL.createObjectURL(blob);
                                                                     const a = document.createElement('a');
                                                                     a.href = url;
-                                                                    a.download = `${(report.title || 'recording').replace(/[^a-zA-Z0-9_\- ]/g, '')}.webm`;
+                                                                    const safeName = (report.title || (report.type === 'SCREENSHOT' ? 'screenshot' : 'recording')).replace(/[^a-zA-Z0-9_\- ]/g, '');
+                                                                    a.download = report.type === 'SCREENSHOT' ? `${safeName}.png` : `${safeName}.webm`;
                                                                     document.body.appendChild(a);
                                                                     a.click();
                                                                     document.body.removeChild(a);
@@ -401,7 +437,7 @@ export default function DashboardPage() {
                                                             {Icons.download}
                                                         </button>
                                                     </TooltipTrigger>
-                                                    <TooltipContent>Download video</TooltipContent>
+                                                    <TooltipContent>Download {report.type === 'SCREENSHOT' ? 'screenshot' : 'video'}</TooltipContent>
                                                 </Tooltip>
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>

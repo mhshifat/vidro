@@ -144,7 +144,9 @@ interface Report {
     id: string;
     title: string | null;
     description: string | null;
-    videoUrl: string;
+    type: 'VIDEO' | 'SCREENSHOT';
+    videoUrl: string | null;
+    imageUrl: string | null;
     consoleLogs: ConsoleLogEntry[] | null;
     networkLogs: NetworkLogEntry[] | null;
     userId: string;
@@ -530,13 +532,17 @@ export default function ReportPage() {
 
     const handleDownload = async () => {
         if (!report) return;
+        const isImage = report.type === 'SCREENSHOT';
+        const mediaUrl = isImage ? report.imageUrl : report.videoUrl;
+        if (!mediaUrl) return;
         try {
-            const res = await fetch(report.videoUrl);
+            const res = await fetch(mediaUrl);
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${(report.title || 'recording').replace(/[^a-zA-Z0-9_\- ]/g, '')}.webm`;
+            const safeName = (report.title || (isImage ? 'screenshot' : 'recording')).replace(/[^a-zA-Z0-9_\- ]/g, '');
+            a.download = isImage ? `${safeName}.png` : `${safeName}.webm`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -677,7 +683,7 @@ export default function ReportPage() {
                                         <span className="hidden sm:inline">Download</span>
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Download video</TooltipContent>
+                                <TooltipContent>Download {report.type === 'SCREENSHOT' ? 'screenshot' : 'video'}</TooltipContent>
                             </Tooltip>
                             <Button
                                 size="sm"
@@ -694,9 +700,19 @@ export default function ReportPage() {
 
                 {/* ── Content ─────────────────────────────────────── */}
                 <main className="mx-auto max-w-screen-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    {/* ── Full-width Video Player ─────────────────── */}
+                    {/* ── Full-width Media ─────────────────────── */}
                     <div className="w-full border-b">
-                        <VideoPlayer src={report.videoUrl} />
+                        {report.type === 'SCREENSHOT' && report.imageUrl ? (
+                            <div className="w-full bg-black/5 dark:bg-white/5 flex items-center justify-center p-4">
+                                <img
+                                    src={report.imageUrl}
+                                    alt={report.title || 'Screenshot'}
+                                    className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-lg"
+                                />
+                            </div>
+                        ) : report.videoUrl ? (
+                            <VideoPlayer src={report.videoUrl} />
+                        ) : null}
                     </div>
 
                     {/* ── Bento Grid below video ──────────────────── */}
