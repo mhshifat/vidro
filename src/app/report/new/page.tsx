@@ -853,7 +853,7 @@ function RecordingSelector({ recordings, activeId, onSelect, onDiscard }: {
                     <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Recordings</h3>
                     <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{recordings.length}</Badge>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                <div className="flex gap-2 overflow-x-auto pb-1 pt-2 px-1 scrollbar-thin">
                     {recordings.map((rec) => {
                         const isActive = rec.id === activeId;
                         const time = new Date(rec.timestamp).toLocaleString("en-US", {
