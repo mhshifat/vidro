@@ -543,6 +543,7 @@ export default function NewReportPage() {
     const [title, setTitle] = useState("Unlabeled Recording");
     const [description, setDescription] = useState("");
     const [activeLogTab, setActiveLogTab] = useState("console");
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
@@ -611,6 +612,55 @@ export default function NewReportPage() {
         }
     };
 
+    const handleSaveReport = async () => {
+        if (!recording || saving) return;
+        setSaving(true);
+
+        try {
+            // 1. Convert data URL to a File blob
+            const res = await fetch(recording.videoUrl);
+            const blob = await res.blob();
+            const file = new File([blob], `recording-${Date.now()}.webm`, { type: 'video/webm' });
+
+            // 2. Upload video to server
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!uploadRes.ok) throw new Error('Upload failed');
+            const { url: videoUrl } = await uploadRes.json();
+
+            // 3. Create the report
+            const reportRes = await fetch('/api/report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: title || 'Untitled Bug Report',
+                    description,
+                    videoUrl,
+                    consoleLogs: recording.consoleLogs,
+                    networkLogs: recording.networkLogs,
+                }),
+            });
+
+            if (!reportRes.ok) throw new Error('Failed to save report');
+            const report = await reportRes.json();
+
+            // 4. Clean up local recording
+            handleDiscardRecording(recording.id);
+
+            // 5. Navigate to saved report
+            router.push(`/report/${report.id}`);
+        } catch (err) {
+            console.error('Save failed:', err);
+            setSaving(false);
+        }
+    };
+
     if (loading && !recording) return <LoadingScreen />;
 
     if (!recording) {
@@ -666,9 +716,20 @@ export default function NewReportPage() {
                             <Button variant="ghost" size="sm" onClick={() => handleDiscardRecording(recording.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                                 Discard
                             </Button>
-                            <Button size="sm" onClick={() => alert('Saving coming soon!')} className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30">
-                                {Icons.heart}
-                                Save &amp; Share
+                            <Button size="sm" onClick={handleSaveReport} disabled={saving} className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30">
+                                {saving ? (
+                                    <>
+                                        <svg className="size-4 mr-1 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Saving…
+                                    </>
+                                ) : (
+                                    <>
+                                        {Icons.heart}
+                                        Save &amp; Share
+                                    </>
+                                )}
                             </Button>
                         </div>
                     </div>
