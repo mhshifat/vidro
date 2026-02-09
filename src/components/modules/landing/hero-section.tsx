@@ -89,7 +89,7 @@ export function HeroSection() {
                   <svg viewBox="0 0 16 16" fill="currentColor" className="mr-1.5 size-3 opacity-40">
                     <path fillRule="evenodd" d="M8 1a4 4 0 00-4 4v3H3a1 1 0 00-1 1v5a1 1 0 001 1h10a1 1 0 001-1V9a1 1 0 00-1-1h-1V5a4 4 0 00-4-4zm2 7V5a2 2 0 10-4 0v3h4z" clipRule="evenodd" />
                   </svg>
-                  app.buglens.dev/dashboard
+                  vidro.dev/dashboard
                 </div>
               </div>
 

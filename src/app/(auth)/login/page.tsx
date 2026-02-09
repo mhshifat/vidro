@@ -159,7 +159,7 @@ export default function LoginPage() {
                                     {Icons.bug}
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-black tracking-tight">Jam Clone</h2>
+                                    <h2 className="text-xl font-black tracking-tight">Vidro</h2>
                                     <p className="text-xs text-muted-foreground">Bug reporting, reimagined</p>
                                 </div>
                             </div>
@@ -207,7 +207,7 @@ export default function LoginPage() {
                                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
                                     {Icons.bug}
                                 </div>
-                                <span className="text-lg font-black tracking-tight">Jam Clone</span>
+                                <span className="text-lg font-black tracking-tight">Vidro</span>
                             </div>
 
                             {/* Heading */}

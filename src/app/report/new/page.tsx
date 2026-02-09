@@ -208,7 +208,7 @@ function LoadingScreen() {
                 <div className="text-center space-y-2">
                     <h2 className="text-lg font-bold tracking-tight">Receiving Recording</h2>
                     <p className="text-sm text-muted-foreground max-w-xs">
-                        Waiting for data from the Jam Clone extension&hellip;
+                        Waiting for data from the Vidro extension&hellip;
                     </p>
                 </div>
                 <div className="grid grid-cols-3 gap-2 w-64 mt-4 opacity-30">
@@ -834,8 +834,8 @@ function NewReportPageInner() {
                         <h2 className="text-lg font-bold tracking-tight">{isScreenshot ? 'No Screenshot' : 'No Recordings'}</h2>
                         <p className="text-sm text-muted-foreground max-w-xs">
                             {isScreenshot
-                                ? 'Take a screenshot from the Jam Clone extension, then come back here.'
-                                : 'Start a recording from the Jam Clone extension, then come back here.'}
+                                ? 'Take a screenshot from the Vidro extension, then come back here.'
+                                : 'Start a recording from the Vidro extension, then come back here.'}
                         </p>
                     </div>
                     <Button variant="outline" onClick={() => router.push('/dashboard')}>

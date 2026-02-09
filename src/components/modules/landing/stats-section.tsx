@@ -1,7 +1,7 @@
 const STATS = [
   { value: "10x", label: "Faster bug reports" },
   { value: "85%", label: "Less back & forth" },
-  { value: "500+", label: "Teams using BugLens" },
+  { value: "500+", label: "Teams using Vidro" },
   { value: "50k+", label: "Bugs captured" },
 ] as const;
 

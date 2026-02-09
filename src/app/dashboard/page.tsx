@@ -215,7 +215,7 @@ export default function DashboardPage() {
                             <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                                 {Icons.bug}
                             </div>
-                            <h1 className="text-base font-bold tracking-tight">Jam Clone</h1>
+                            <h1 className="text-base font-bold tracking-tight">Vidro</h1>
                         </div>
                         <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
                             {Icons.logout}
@@ -326,7 +326,7 @@ export default function DashboardPage() {
                                 <div className="space-y-1">
                                     <h3 className="text-lg font-bold tracking-tight">No reports yet</h3>
                                     <p className="text-sm text-muted-foreground max-w-sm">
-                                        Use the Jam Clone browser extension to record your first bug report.
+                                        Use the Vidro browser extension to record your first bug report.
                                         It captures video, console logs, and network requests automatically.
                                     </p>
                                 </div>

@@ -19,7 +19,7 @@ export function Navbar() {
               <circle cx="16" cy="16" r="3.5" fill="#ef4444" />
             </svg>
           </div>
-          <span className="text-lg font-bold tracking-tight">BugLens</span>
+          <span className="text-lg font-bold tracking-tight">Vidro</span>
         </Link>
 
         {/* Desktop nav links */}

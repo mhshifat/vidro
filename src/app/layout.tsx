@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 import { TRPCProvider } from "@/trpc/provider";
 
 export const metadata: Metadata = {
-  title: "Jam Clone",
+  title: "Vidro",
   description: "Bug reporting tool",
 };
 

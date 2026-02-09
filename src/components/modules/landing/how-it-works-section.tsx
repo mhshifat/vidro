@@ -11,7 +11,7 @@ const STEPS: StepProps[] = [
   {
     number: 1,
     title: "Install the Extension",
-    description: "Add BugLens to Chrome in one click. It sits quietly in your toolbar until you need it.",
+    description: "Add Vidro to Chrome in one click. It sits quietly in your toolbar until you need it.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-6">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />

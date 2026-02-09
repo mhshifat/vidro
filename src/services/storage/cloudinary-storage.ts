@@ -55,7 +55,7 @@ export class CloudinaryStorageProvider implements StorageProvider {
                 {
                     resource_type: "video",
                     public_id: key.replace(/\.[^/.]+$/, ""), // strip extension
-                    folder: "jam-clone",
+                    folder: "vidro",
                     overwrite: true,
                 },
                 (error, result) => {

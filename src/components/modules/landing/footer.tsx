@@ -42,7 +42,7 @@ export function Footer() {
                   <circle cx="16" cy="16" r="3.5" fill="#ef4444" />
                 </svg>
               </div>
-              <span className="text-base font-bold tracking-tight">BugLens</span>
+              <span className="text-base font-bold tracking-tight">Vidro</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
               The fastest way to capture, annotate, and share bug reports. Built for modern development teams.
@@ -88,7 +88,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/50 pt-8 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {currentYear} BugLens. All rights reserved.
+            &copy; {currentYear} Vidro. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <a href="#" className="transition-colors hover:text-foreground">Privacy Policy</a>
