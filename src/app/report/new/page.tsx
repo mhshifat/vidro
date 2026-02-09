@@ -215,8 +215,6 @@ function VideoPlayer({ src }: { src: string }) {
     const [controlsVisible, setControlsVisible] = useState(true);
     const [buffered, setBuffered] = useState(0);
 
-    const v = videoRef.current;
-
     const showControls = useCallback(() => {
         setControlsVisible(true);
         clearTimeout(hideTimerRef.current);
@@ -228,13 +226,14 @@ function VideoPlayer({ src }: { src: string }) {
     // Keyboard shortcuts
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            if (!v) return;
+            const vid = videoRef.current;
+            if (!vid) return;
             switch (e.key) {
-                case " ": case "k": e.preventDefault(); playing ? v.pause() : v.play(); break;
-                case "ArrowLeft": e.preventDefault(); v.currentTime = Math.max(0, v.currentTime - 5); break;
-                case "ArrowRight": e.preventDefault(); v.currentTime = Math.min(v.duration, v.currentTime + 5); break;
-                case "ArrowUp": e.preventDefault(); v.volume = Math.min(1, v.volume + 0.1); setVolume(v.volume); break;
-                case "ArrowDown": e.preventDefault(); v.volume = Math.max(0, v.volume - 0.1); setVolume(v.volume); break;
+                case " ": case "k": e.preventDefault(); playing ? vid.pause() : vid.play(); break;
+                case "ArrowLeft": e.preventDefault(); vid.currentTime = Math.max(0, vid.currentTime - 5); break;
+                case "ArrowRight": e.preventDefault(); vid.currentTime = Math.min(vid.duration, vid.currentTime + 5); break;
+                case "ArrowUp": e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1); setVolume(vid.volume); break;
+                case "ArrowDown": e.preventDefault(); vid.volume = Math.max(0, vid.volume - 0.1); setVolume(vid.volume); break;
                 case "m": setMuted(!muted); break;
                 case "f": toggleFullscreen(); break;
             }
@@ -245,8 +244,9 @@ function VideoPlayer({ src }: { src: string }) {
     });
 
     const togglePlay = () => {
-        if (!v) return;
-        playing ? v.pause() : v.play();
+        const vid = videoRef.current;
+        if (!vid) return;
+        playing ? vid.pause() : vid.play();
     };
 
     const toggleFullscreen = async () => {
@@ -259,36 +259,41 @@ function VideoPlayer({ src }: { src: string }) {
     };
 
     const togglePip = async () => {
-        if (!v) return;
+        const vid = videoRef.current;
+        if (!vid) return;
         if (document.pictureInPictureElement) {
             await document.exitPictureInPicture();
         } else {
-            await v.requestPictureInPicture();
+            await vid.requestPictureInPicture();
         }
     };
 
     const skip = (delta: number) => {
-        if (!v) return;
-        v.currentTime = Math.max(0, Math.min(v.duration, v.currentTime + delta));
+        const vid = videoRef.current;
+        if (!vid) return;
+        vid.currentTime = Math.max(0, Math.min(vid.duration, vid.currentTime + delta));
     };
 
     const cycleSpeed = () => {
         const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
         const next = speeds[(speeds.indexOf(speed) + 1) % speeds.length];
         setSpeed(next);
-        if (v) v.playbackRate = next;
+        const vid = videoRef.current;
+        if (vid) vid.playbackRate = next;
         setShowSpeedMenu(false);
     };
 
     useEffect(() => {
-        if (!v) return;
-        v.muted = muted;
-    }, [muted, v]);
+        const vid = videoRef.current;
+        if (!vid) return;
+        vid.muted = muted;
+    }, [muted]);
 
     useEffect(() => {
-        if (!v) return;
-        v.volume = volume;
-    }, [volume, v]);
+        const vid = videoRef.current;
+        if (!vid) return;
+        vid.volume = volume;
+    }, [volume]);
 
     // Fullscreen change detection
     useEffect(() => {
@@ -320,14 +325,39 @@ function VideoPlayer({ src }: { src: string }) {
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
                 onTimeUpdate={() => {
-                    if (!v) return;
-                    setCurrentTime(v.currentTime);
-                    if (v.buffered.length > 0) {
-                        setBuffered((v.buffered.end(v.buffered.length - 1) / v.duration) * 100);
+                    const vid = videoRef.current;
+                    if (!vid) return;
+                    setCurrentTime(vid.currentTime);
+                    // For MediaRecorder WebMs without duration metadata,
+                    // track the highest currentTime as a fallback duration
+                    if (!isFinite(vid.duration) || vid.duration === 0) {
+                        setDuration((prev) => Math.max(prev, vid.currentTime));
+                    }
+                    if (vid.buffered.length > 0 && isFinite(vid.duration) && vid.duration > 0) {
+                        setBuffered((vid.buffered.end(vid.buffered.length - 1) / vid.duration) * 100);
                     }
                 }}
-                onLoadedMetadata={() => v && setDuration(v.duration)}
-                onEnded={() => { setPlaying(false); setControlsVisible(true); }}
+                onLoadedMetadata={() => {
+                    const vid = videoRef.current;
+                    if (vid && isFinite(vid.duration) && vid.duration > 0) {
+                        setDuration(vid.duration);
+                    }
+                }}
+                onDurationChange={() => {
+                    const vid = videoRef.current;
+                    if (vid && isFinite(vid.duration) && vid.duration > 0) {
+                        setDuration(vid.duration);
+                    }
+                }}
+                onEnded={() => {
+                    const vid = videoRef.current;
+                    // On ended, we know the true duration
+                    if (vid && vid.currentTime > 0) {
+                        setDuration((prev) => Math.max(prev, vid.currentTime));
+                    }
+                    setPlaying(false);
+                    setControlsVisible(true);
+                }}
                 playsInline
             />
 
@@ -356,10 +386,13 @@ function VideoPlayer({ src }: { src: string }) {
                         className="group/progress relative h-1.5 hover:h-2.5 transition-all duration-200 cursor-pointer rounded-full bg-white/20 overflow-hidden"
                         onClick={(e) => {
                             e.stopPropagation();
-                            if (!v) return;
+                            const vid = videoRef.current;
+                            if (!vid) return;
+                            const seekDuration = isFinite(vid.duration) && vid.duration > 0 ? vid.duration : duration;
+                            if (seekDuration <= 0) return;
                             const rect = e.currentTarget.getBoundingClientRect();
                             const pct = (e.clientX - rect.left) / rect.width;
-                            v.currentTime = pct * v.duration;
+                            vid.currentTime = pct * seekDuration;
                         }}
                     >
                         {/* Buffered */}
