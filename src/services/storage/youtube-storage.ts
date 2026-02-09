@@ -1,12 +1,15 @@
 import { google } from "googleapis";
-import { BaseStorageProvider } from "./storage-provider";
 import { prisma } from "@/lib/db";
 
-export class YoutubeStorage extends BaseStorageProvider {
+/**
+ * YouTube OAuth & credential management.
+ * This is NOT a StorageProvider — it manages YouTube API tokens
+ * used for any YouTube-specific features (e.g. sharing to YouTube).
+ */
+export class YoutubeStorage {
     private oauth2Client;
 
     constructor() {
-        super();
         this.oauth2Client = new google.auth.OAuth2(
             process.env.YOUTUBE_CLIENT_ID,
             process.env.YOUTUBE_CLIENT_SECRET,
@@ -36,14 +39,6 @@ export class YoutubeStorage extends BaseStorageProvider {
             select: { youtubeAccessToken: true },
         });
         return !!user?.youtubeAccessToken;
-    }
-
-    async getUploadUrl(_fileName: string, _contentType: string): Promise<string> {
-        // For YouTube, we don't get a presigned URL for direct PUT like S3.
-        // Instead, the client (Extension) will use the Access Token to upload directly to Google API.
-        // This method might return the Access Token or an empty string if we handle it differently.
-        // In our architecture, the client asks for credentials, not just a URL.
-        throw new Error("Use getCredentials for YouTube");
     }
 
     async getCredentials(userId: string) {

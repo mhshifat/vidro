@@ -63,9 +63,34 @@ interface ReportSummary {
     title: string | null;
     description: string | null;
     videoUrl: string;
+    storageKey: string | null;
+    fileSize: number | null;
     consoleLogs: unknown[] | null;
     networkLogs: unknown[] | null;
     createdAt: string;
+}
+
+interface UsageInfo {
+    storage: {
+        usedBytes: number;
+        limitBytes: number;
+        usedMB: number;
+        limitMB: number;
+        remainingBytes: number;
+        percentUsed: number;
+    };
+    reports: {
+        used: number;
+        limit: number;
+        remaining: number;
+    };
+    perRecording: {
+        maxFileSizeMB: number;
+        maxDurationSeconds: number | null;
+        maxResolution: string;
+        maxFps: number;
+        codec: string;
+    };
 }
 
 /* ──────────────────────────────────────────────────────────────── */
@@ -76,6 +101,18 @@ export default function DashboardPage() {
     const [reports, setReports] = useState<ReportSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [usage, setUsage] = useState<UsageInfo | null>(null);
+
+    const fetchUsage = useCallback(async () => {
+        try {
+            const res = await fetch("/api/usage");
+            if (res.ok) {
+                setUsage(await res.json());
+            }
+        } catch (err) {
+            console.error("Failed to fetch usage:", err);
+        }
+    }, []);
 
     const fetchReports = useCallback(async () => {
         try {
@@ -94,7 +131,7 @@ export default function DashboardPage() {
         }
     }, [router]);
 
-    useEffect(() => { fetchReports(); }, [fetchReports]);
+    useEffect(() => { fetchReports(); fetchUsage(); }, [fetchReports, fetchUsage]);
 
     const handleDelete = async (id: string) => {
         setDeletingId(id);
@@ -102,6 +139,7 @@ export default function DashboardPage() {
             const res = await fetch(`/api/reports?id=${id}`, { method: "DELETE" });
             if (res.ok) {
                 setReports(prev => prev.filter(r => r.id !== id));
+                fetchUsage(); // Refresh storage usage after deletion
             }
         } catch (err) {
             console.error("Delete failed:", err);
@@ -111,7 +149,9 @@ export default function DashboardPage() {
     };
 
     const handleLogout = async () => {
-        document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        try {
+            await fetch("/api/auth/logout", { method: "POST" });
+        } catch {}
         router.push("/login");
     };
 
@@ -206,6 +246,52 @@ export default function DashboardPage() {
                                 </CardContent>
                             </Card>
                         </div>
+                    )}
+
+                    {/* ── Usage & Limits ──────────────────────────── */}
+                    {usage && (
+                        <Card className="mb-8 py-5 transition-shadow hover:shadow-md">
+                            <CardContent className="py-0 space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-semibold">Storage Usage</p>
+                                    <p className="text-xs tabular-nums text-muted-foreground">
+                                        {usage.storage.usedMB.toFixed(1)} / {usage.storage.limitMB.toFixed(0)} MB
+                                    </p>
+                                </div>
+                                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${
+                                            usage.storage.percentUsed > 90
+                                                ? "bg-red-500"
+                                                : usage.storage.percentUsed > 70
+                                                  ? "bg-amber-500"
+                                                  : "bg-primary"
+                                        }`}
+                                        style={{ width: `${Math.min(100, usage.storage.percentUsed)}%` }}
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-muted-foreground">
+                                    <div>
+                                        <span className="block text-[10px] uppercase tracking-wider font-medium mb-0.5">Reports</span>
+                                        <span className="tabular-nums text-foreground font-semibold">{usage.reports.used}</span> / {usage.reports.limit}
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] uppercase tracking-wider font-medium mb-0.5">Max File</span>
+                                        {usage.perRecording.maxFileSizeMB} MB
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] uppercase tracking-wider font-medium mb-0.5">Max Duration</span>
+                                        {usage.perRecording.maxDurationSeconds
+                                            ? `${Math.floor(usage.perRecording.maxDurationSeconds / 60)} min`
+                                            : 'Unlimited'}
+                                    </div>
+                                    <div>
+                                        <span className="block text-[10px] uppercase tracking-wider font-medium mb-0.5">Codec</span>
+                                        {usage.perRecording.codec}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     )}
 
                     {/* ── Reports Grid ────────────────────────────── */}

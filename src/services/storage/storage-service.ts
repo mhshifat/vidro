@@ -1,9 +1,21 @@
-import { YoutubeStorage } from "./youtube-storage";
 import { StorageProvider } from "./storage-provider";
+import { CloudinaryStorageProvider } from "./cloudinary-storage";
 
+/**
+ * Factory for the active storage provider.
+ *
+ * To switch backends, change the class returned here
+ * (e.g. swap CloudinaryStorageProvider → R2StorageProvider).
+ * Every provider implements the same StorageProvider interface,
+ * so the rest of the codebase stays untouched.
+ */
 export class StorageService {
-    public static getProvider(): StorageProvider & { getCredentials(userId: string): Promise<string | null | undefined> } {
-        // In the future, we can switch based on config
-        return new YoutubeStorage();
+    private static instance: StorageProvider | null = null;
+
+    public static getProvider(): StorageProvider {
+        if (!this.instance) {
+            this.instance = new CloudinaryStorageProvider();
+        }
+        return this.instance;
     }
 }

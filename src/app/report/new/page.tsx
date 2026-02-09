@@ -544,6 +544,7 @@ export default function NewReportPage() {
     const [description, setDescription] = useState("");
     const [activeLogTab, setActiveLogTab] = useState("console");
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
@@ -615,6 +616,7 @@ export default function NewReportPage() {
     const handleSaveReport = async () => {
         if (!recording || saving) return;
         setSaving(true);
+        setSaveError(null);
 
         try {
             // 1. Convert data URL to a File blob
@@ -631,8 +633,30 @@ export default function NewReportPage() {
                 body: formData,
             });
 
-            if (!uploadRes.ok) throw new Error('Upload failed');
-            const { url: videoUrl } = await uploadRes.json();
+            if (!uploadRes.ok) {
+                const uploadErr = await uploadRes.json().catch(() => ({}));
+                const detail = uploadErr.detail || uploadErr.error || 'Upload failed';
+                switch (uploadRes.status) {
+                    case 401:
+                        setSaveError('You are not logged in. Please log in and try again.');
+                        setSaving(false);
+                        return;
+                    case 413:
+                        setSaveError(`File too large. ${detail}`);
+                        setSaving(false);
+                        return;
+                    case 429:
+                        setSaveError(detail);
+                        setSaving(false);
+                        return;
+                    default:
+                        setSaveError(detail);
+                        setSaving(false);
+                        return;
+                }
+            }
+
+            const { url: videoUrl, key: storageKey, fileSize } = await uploadRes.json();
 
             // 3. Create the report
             const reportRes = await fetch('/api/report', {
@@ -642,12 +666,19 @@ export default function NewReportPage() {
                     title: title || 'Untitled Bug Report',
                     description,
                     videoUrl,
+                    storageKey,
+                    fileSize,
                     consoleLogs: recording.consoleLogs,
                     networkLogs: recording.networkLogs,
                 }),
             });
 
-            if (!reportRes.ok) throw new Error('Failed to save report');
+            if (!reportRes.ok) {
+                const reportErr = await reportRes.json().catch(() => ({}));
+                setSaveError(reportErr.error || 'Failed to save report. Please try again.');
+                setSaving(false);
+                return;
+            }
             const report = await reportRes.json();
 
             // 4. Clean up local recording
@@ -657,6 +688,7 @@ export default function NewReportPage() {
             router.push(`/report/${report.id}`);
         } catch (err) {
             console.error('Save failed:', err);
+            setSaveError('An unexpected error occurred. Please check your connection and try again.');
             setSaving(false);
         }
     };
@@ -734,6 +766,23 @@ export default function NewReportPage() {
                         </div>
                     </div>
                 </header>
+
+                {/* ── Save Error Banner ─────────────────────────── */}
+                {saveError && (
+                    <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 pt-3">
+                        <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-5 shrink-0 text-destructive mt-0.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span className="flex-1 text-destructive">{saveError}</span>
+                            <button onClick={() => setSaveError(null)} className="text-destructive/60 hover:text-destructive transition-colors">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Recording Selector (only when multiple) ─── */}
                 {recordings.length > 1 && (

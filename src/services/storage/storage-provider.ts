@@ -1,13 +1,25 @@
+/**
+ * Generic storage provider interface.
+ * Implement this to swap in any file storage backend
+ * (Cloudflare R2, AWS S3, GCS, MinIO, local disk, etc.)
+ */
 export interface StorageProvider {
-    getUploadUrl(fileName: string, contentType: string): Promise<string>;
-    getAuthUrl(): string;
-    handleCallback(code: string): Promise<unknown>;
-    isAuthenticated(userId: string): Promise<boolean>;
-}
+    /**
+     * Upload a file and return its public URL and storage key.
+     */
+    upload(
+        buffer: Buffer,
+        key: string,
+        contentType: string
+    ): Promise<{ url: string; key: string }>;
 
-export abstract class BaseStorageProvider implements StorageProvider {
-    abstract getUploadUrl(fileName: string, contentType: string): Promise<string>;
-    abstract getAuthUrl(): string;
-    abstract handleCallback(code: string): Promise<unknown>;
-    abstract isAuthenticated(userId: string): Promise<boolean>;
+    /**
+     * Delete a file by its storage key.
+     */
+    delete(key: string): Promise<void>;
+
+    /**
+     * Get the public URL for a stored file.
+     */
+    getPublicUrl(key: string): string;
 }

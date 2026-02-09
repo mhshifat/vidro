@@ -5,6 +5,15 @@ import { cookies } from "next/headers";
 
 const authService = new AuthService();
 
+function sanitizeUser(user: any) {
+    const { password, storageUsed, storageLimit, youtubeAccessToken, youtubeRefreshToken, youtubeTokenExpiry, ...rest } = user;
+    return {
+        ...rest,
+        storageUsed: storageUsed != null ? Number(storageUsed) : 0,
+        storageLimit: storageLimit != null ? Number(storageLimit) : 0,
+    };
+}
+
 export const authRouter = router({
     register: publicProcedure
         .input(
@@ -17,7 +26,7 @@ export const authRouter = router({
         .mutation(async ({ input }) => {
             const { token, user } = await authService.register(input);
             (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
-            return user;
+            return sanitizeUser(user);
         }),
 
     login: publicProcedure
@@ -30,7 +39,7 @@ export const authRouter = router({
         .mutation(async ({ input }) => {
             const { token, user } = await authService.login(input);
             (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
-            return user;
+            return sanitizeUser(user);
         }),
 
     logout: publicProcedure.mutation(async () => {

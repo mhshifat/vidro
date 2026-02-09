@@ -20,6 +20,11 @@ model User {
   youtubeRefreshToken String?  @map("youtube_refresh_token")
   youtubeTokenExpiry  DateTime? @map("youtube_token_expiry")
 
+  // Per-user storage quotas (bytes)
+  storageUsed     BigInt   @default(0) @map("storage_used")
+  storageLimit    BigInt   @default(524288000) @map("storage_limit") // 500 MB default
+  maxReports      Int      @default(25) @map("max_reports")
+
   reports             Report[]
 
   @@map("users")
@@ -30,6 +35,8 @@ model Report {
   title       String?  @default("New Bug Report")
   description String?
   videoUrl    String   @map("video_url")
+  storageKey  String?  @map("storage_key")
+  fileSize    BigInt   @default(0) @map("file_size")
   consoleLogs Json?    @map("console_logs")
   networkLogs Json?    @map("network_logs")
   

@@ -1,8 +1,8 @@
-import { StorageService } from "@/services/storage/storage-service";
+import { YoutubeStorage } from "@/services/storage/youtube-storage";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    const provider = StorageService.getProvider();
-    const url = provider.getAuthUrl();
+    const youtube = new YoutubeStorage();
+    const url = youtube.getAuthUrl();
     return NextResponse.redirect(url);
 }

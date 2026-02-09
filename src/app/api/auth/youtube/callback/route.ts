@@ -1,4 +1,4 @@
-import { StorageService } from "@/services/storage/storage-service";
+import { YoutubeStorage } from "@/services/storage/youtube-storage";
 import { prisma } from "@/lib/db";
 import { JWTManager } from "@/lib/jwt";
 import { cookies } from "next/headers";
@@ -21,9 +21,9 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL("/login", req.url));
     }
 
-    const provider = StorageService.getProvider();
+    const youtube = new YoutubeStorage();
     try {
-        const tokens = await provider.handleCallback(code) as any;
+        const tokens = await youtube.handleCallback(code) as any;
 
         // Save tokens to user
         await prisma.user.update({
