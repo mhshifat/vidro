@@ -2,6 +2,8 @@ import { router, publicProcedure } from "../trpc";
 import { z } from "zod";
 import { AuthService } from "@/services/auth-service";
 import { cookies } from "next/headers";
+import { JWTManager } from "@/lib/jwt";
+import { prisma } from "@/lib/db";
 
 const authService = new AuthService();
 
@@ -45,5 +47,15 @@ export const authRouter = router({
     logout: publicProcedure.mutation(async () => {
         (await cookies()).delete("token");
         return { success: true };
+    }),
+
+    me: publicProcedure.query(async () => {
+        const token = (await cookies()).get("token")?.value;
+        if (!token) return null;
+        const payload = await JWTManager.verify(token);
+        if (!payload) return null;
+        const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+        if (!user) return null;
+        return sanitizeUser(user);
     }),
 });
