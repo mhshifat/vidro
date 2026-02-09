@@ -233,6 +233,9 @@ function VideoPlayer({ src }: { src: string }) {
         const handler = (e: KeyboardEvent) => {
             const vid = videoRef.current;
             if (!vid) return;
+            // Don't capture keys when user is typing in an input/textarea
+            const tag = (e.target as HTMLElement)?.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
             switch (e.key) {
                 case " ": case "k": e.preventDefault(); togglePlay(); break;
                 case "ArrowLeft": e.preventDefault(); vid.currentTime = Math.max(0, vid.currentTime - 5); break;
