@@ -621,7 +621,7 @@ function NewReportPageInner() {
 
     // Initialize from localStorage (survives refresh)
     const [persisted] = useState(() => loadFromLocal());
-    const [persistedScreenshot] = useState(() => loadScreenshotFromLocal());
+    const [persistedScreenshot] = useState(() => isScreenshot ? loadScreenshotFromLocal() : null);
     const [recordings, setRecordings] = useState<RecordingPayload[]>(persisted);
     const [recording, setRecording] = useState<RecordingPayload | null>(persisted[0] ?? null);
     const hasPersistedData = persisted.length > 0 || persistedScreenshot !== null;
@@ -661,6 +661,8 @@ function NewReportPageInner() {
                     return updated;
                 });
                 setRecording(incoming);
+                setScreenshotData(null);
+                saveScreenshotToLocal(null);
                 setLoading(false);
             }
 
