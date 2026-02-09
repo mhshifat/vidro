@@ -112,6 +112,17 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
         </svg>
     ),
+    copy: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+        </svg>
+    ),
+    check: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+    ),
 };
 
 /* ─── Types ────────────────────────────────────────────────────── */
@@ -625,6 +636,7 @@ function NewReportPageInner() {
     const [activeLogTab, setActiveLogTab] = useState("console");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [copiedImage, setCopiedImage] = useState(false);
 
     // Prevent accidental navigation while uploading
     useEffect(() => {
@@ -860,6 +872,34 @@ function NewReportPageInner() {
                             />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                            {screenshotData && (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1.5"
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetch(screenshotData.imageUrl);
+                                                    const blob = await res.blob();
+                                                    await navigator.clipboard.write([
+                                                        new ClipboardItem({ [blob.type]: blob })
+                                                    ]);
+                                                    setCopiedImage(true);
+                                                    setTimeout(() => setCopiedImage(false), 2000);
+                                                } catch (err) {
+                                                    console.error('Copy failed:', err);
+                                                }
+                                            }}
+                                        >
+                                            {copiedImage ? Icons.check : Icons.copy}
+                                            {copiedImage ? 'Copied!' : 'Copy'}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Copy image to clipboard</TooltipContent>
+                                </Tooltip>
+                            )}
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
