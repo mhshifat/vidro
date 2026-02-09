@@ -202,7 +202,7 @@ function LoadingScreen() {
 function VideoPlayer({ src }: { src: string }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
+    const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -210,10 +210,10 @@ function VideoPlayer({ src }: { src: string }) {
     const [volume, setVolume] = useState(1);
     const [muted, setMuted] = useState(false);
     const [speed, setSpeed] = useState(1);
-    const [showSpeedMenu, setShowSpeedMenu] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [controlsVisible, setControlsVisible] = useState(true);
     const [buffered, setBuffered] = useState(0);
+    const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
 
     const showControls = useCallback(() => {
         setControlsVisible(true);
@@ -223,13 +223,28 @@ function VideoPlayer({ src }: { src: string }) {
         }
     }, [playing]);
 
+    const togglePlay = () => {
+        const vid = videoRef.current;
+        if (!vid) return;
+        if (playing) { vid.pause(); } else { vid.play(); }
+    };
+
+    const toggleFullscreen = async () => {
+        if (!containerRef.current) return;
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+        } else {
+            await containerRef.current.requestFullscreen();
+        }
+    };
+
     // Keyboard shortcuts
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
             const vid = videoRef.current;
             if (!vid) return;
             switch (e.key) {
-                case " ": case "k": e.preventDefault(); playing ? vid.pause() : vid.play(); break;
+                case " ": case "k": e.preventDefault(); if (playing) { vid.pause(); } else { vid.play(); } break;
                 case "ArrowLeft": e.preventDefault(); vid.currentTime = Math.max(0, vid.currentTime - 5); break;
                 case "ArrowRight": e.preventDefault(); vid.currentTime = Math.min(vid.duration, vid.currentTime + 5); break;
                 case "ArrowUp": e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1); setVolume(vid.volume); break;
@@ -242,21 +257,6 @@ function VideoPlayer({ src }: { src: string }) {
         window.addEventListener("keydown", handler);
         return () => window.removeEventListener("keydown", handler);
     });
-
-    const togglePlay = () => {
-        const vid = videoRef.current;
-        if (!vid) return;
-        playing ? vid.pause() : vid.play();
-    };
-
-    const toggleFullscreen = async () => {
-        if (!containerRef.current) return;
-        if (document.fullscreenElement) {
-            await document.exitFullscreen();
-        } else {
-            await containerRef.current.requestFullscreen();
-        }
-    };
 
     const togglePip = async () => {
         const vid = videoRef.current;
@@ -280,7 +280,7 @@ function VideoPlayer({ src }: { src: string }) {
         setSpeed(next);
         const vid = videoRef.current;
         if (vid) vid.playbackRate = next;
-        setShowSpeedMenu(false);
+
     };
 
     useEffect(() => {
@@ -307,8 +307,12 @@ function VideoPlayer({ src }: { src: string }) {
     return (
         <div
             ref={containerRef}
-            className="group/player relative w-full bg-black overflow-hidden cursor-pointer select-none"
-            style={{ aspectRatio: isFullscreen ? undefined : "16/9", height: isFullscreen ? "100vh" : undefined }}
+            className="group/player relative w-full bg-black overflow-hidden cursor-pointer select-none mx-auto"
+            style={{
+                aspectRatio: isFullscreen ? undefined : videoAspectRatio,
+                height: isFullscreen ? "100vh" : undefined,
+                maxHeight: isFullscreen ? undefined : "80vh",
+            }}
             onMouseMove={showControls}
             onMouseLeave={() => playing && setControlsVisible(false)}
             onClick={(e) => {
@@ -321,7 +325,7 @@ function VideoPlayer({ src }: { src: string }) {
             <video
                 ref={videoRef}
                 src={src}
-                className="size-full object-contain"
+                className="w-full h-full object-contain bg-black"
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
                 onTimeUpdate={() => {
@@ -339,6 +343,9 @@ function VideoPlayer({ src }: { src: string }) {
                 }}
                 onLoadedMetadata={() => {
                     const vid = videoRef.current;
+                    if (vid && vid.videoWidth && vid.videoHeight) {
+                        setVideoAspectRatio(vid.videoWidth / vid.videoHeight);
+                    }
                     if (vid && isFinite(vid.duration) && vid.duration > 0) {
                         setDuration(vid.duration);
                     }
