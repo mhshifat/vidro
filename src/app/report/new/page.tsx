@@ -125,6 +125,7 @@ interface NetworkLogEntry {
 }
 
 interface RecordingPayload {
+    id: string;
     videoUrl: string;
     consoleLogs: ConsoleLogEntry[];
     networkLogs: NetworkLogEntry[];
@@ -518,26 +519,118 @@ function VideoPlayer({ src }: { src: string }) {
 /*  Main Page                                                      */
 /* ──────────────────────────────────────────────────────────────── */
 export default function NewReportPage() {
-    const [recording, setRecording] = useState<RecordingPayload | null>(null);
-    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+
+    // Persist helpers (defined before state so we can use for initialization)
+    const saveToLocal = useCallback((list: RecordingPayload[]) => {
+        try {
+            localStorage.setItem('jam_recordings', JSON.stringify(list));
+        } catch { /* quota exceeded — ignore */ }
+    }, []);
+
+    const loadFromLocal = useCallback((): RecordingPayload[] => {
+        try {
+            const raw = localStorage.getItem('jam_recordings');
+            return raw ? JSON.parse(raw) : [];
+        } catch { return []; }
+    }, []);
+
+    // Initialize from localStorage (survives refresh)
+    const [persisted] = useState(() => loadFromLocal());
+    const [recordings, setRecordings] = useState<RecordingPayload[]>(persisted);
+    const [recording, setRecording] = useState<RecordingPayload | null>(persisted[0] ?? null);
+    const [loading, setLoading] = useState(persisted.length === 0);
     const [title, setTitle] = useState("Unlabeled Recording");
     const [description, setDescription] = useState("");
     const [activeLogTab, setActiveLogTab] = useState("console");
-    const router = useRouter();
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
+            // New single recording from extension
             if (event.data?.type === "TRANSFER_RECORDING") {
-                setRecording(event.data.payload);
+                const incoming = event.data.payload as RecordingPayload;
+                if (!incoming.id) incoming.id = `rec_${Date.now()}`;
+                setRecordings(prev => {
+                    const exists = prev.some(r => r.id === incoming.id || r.timestamp === incoming.timestamp);
+                    const updated = exists ? prev : [incoming, ...prev];
+                    saveToLocal(updated);
+                    return updated;
+                });
+                setRecording(incoming);
                 setLoading(false);
             }
+
+            // Full list of recordings from extension (on refresh when lastRecording is gone)
+            if (event.data?.type === "TRANSFER_RECORDINGS_LIST") {
+                const list = (event.data.payload as RecordingPayload[]) || [];
+                if (list.length > 0) {
+                    setRecordings(list);
+                    saveToLocal(list);
+                    // Only set active recording if we don't have one
+                    setRecording(prev => prev || list[0]);
+                    setLoading(false);
+                }
+            }
         };
+
         window.addEventListener("message", handleMessage);
         window.postMessage({ type: "REPORT_PAGE_READY" }, "*");
-        return () => window.removeEventListener("message", handleMessage);
-    }, []);
 
-    if (loading || !recording) return <LoadingScreen />;
+        // If after 3s we still have nothing, stop loading spinner
+        const timeout = setTimeout(() => {
+            setLoading(false);
+        }, 3000);
+
+        return () => {
+            window.removeEventListener("message", handleMessage);
+            clearTimeout(timeout);
+        };
+    }, [loadFromLocal, saveToLocal]);
+
+    const handleSelectRecording = (rec: RecordingPayload) => {
+        setRecording(rec);
+        setTitle("Unlabeled Recording");
+        setDescription("");
+    };
+
+    const handleDiscardRecording = (id: string) => {
+        // Notify extension to remove from storage
+        window.postMessage({ type: "DISCARD_RECORDING", id }, "*");
+
+        const updated = recordings.filter(r => r.id !== id);
+        setRecordings(updated);
+        saveToLocal(updated);
+
+        if (recording?.id === id) {
+            if (updated.length > 0) {
+                setRecording(updated[0]);
+            } else {
+                setRecording(null);
+                localStorage.removeItem('jam_recordings');
+            }
+        }
+    };
+
+    if (loading && !recording) return <LoadingScreen />;
+
+    if (!recording) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="flex flex-col items-center gap-6 animate-in fade-in duration-500">
+                    <span className="opacity-30">{Icons.inbox}</span>
+                    <div className="text-center space-y-2">
+                        <h2 className="text-lg font-bold tracking-tight">No Recordings</h2>
+                        <p className="text-sm text-muted-foreground max-w-xs">
+                            Start a recording from the Jam Clone extension, then come back here.
+                        </p>
+                    </div>
+                    <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                        Go to Dashboard
+                    </Button>
+                </div>
+            </div>
+        );
+    }
 
     const consoleErrors = recording.consoleLogs?.filter((l) => l.type === "error").length ?? 0;
     const consoleWarnings = recording.consoleLogs?.filter((l) => l.type === "warn").length ?? 0;
@@ -570,7 +663,7 @@ export default function NewReportPage() {
                             />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                            <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')} className="text-muted-foreground">
+                            <Button variant="ghost" size="sm" onClick={() => handleDiscardRecording(recording.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                                 Discard
                             </Button>
                             <Button size="sm" onClick={() => alert('Saving coming soon!')} className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30">
@@ -580,6 +673,16 @@ export default function NewReportPage() {
                         </div>
                     </div>
                 </header>
+
+                {/* ── Recording Selector (only when multiple) ─── */}
+                {recordings.length > 1 && (
+                    <RecordingSelector
+                        recordings={recordings}
+                        activeId={recording.id}
+                        onSelect={handleSelectRecording}
+                        onDiscard={handleDiscardRecording}
+                    />
+                )}
 
                 {/* ── Content ─────────────────────────────────────── */}
                 <main className="mx-auto max-w-screen-2xl animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -733,6 +836,71 @@ export default function NewReportPage() {
                 </main>
             </div>
         </TooltipProvider>
+    );
+}
+
+/* ─── Recording Selector ───────────────────────────────────────── */
+function RecordingSelector({ recordings, activeId, onSelect, onDiscard }: {
+    recordings: RecordingPayload[];
+    activeId: string;
+    onSelect: (rec: RecordingPayload) => void;
+    onDiscard: (id: string) => void;
+}) {
+    return (
+        <div className="border-b bg-muted/30">
+            <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 py-3">
+                <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Recordings</h3>
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{recordings.length}</Badge>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                    {recordings.map((rec) => {
+                        const isActive = rec.id === activeId;
+                        const time = new Date(rec.timestamp).toLocaleString("en-US", {
+                            month: "short", day: "numeric",
+                            hour: "2-digit", minute: "2-digit", hour12: true,
+                        });
+                        return (
+                            <button
+                                key={rec.id}
+                                onClick={() => onSelect(rec)}
+                                className={`group relative flex items-center gap-3 shrink-0 rounded-xl border px-3.5 py-2.5 text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
+                                    isActive
+                                        ? "border-primary/40 bg-primary/5 shadow-sm shadow-primary/10"
+                                        : "border-border bg-background hover:border-border/80 hover:bg-muted/50"
+                                }`}
+                            >
+                                {/* Thumbnail dot */}
+                                <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                                    isActive ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                                }`}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5">
+                                        <path d="M8 5.14v14l11-7-11-7z" />
+                                    </svg>
+                                </div>
+                                <div className="min-w-0">
+                                    <p className={`text-xs font-semibold truncate ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                                        {time}
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground/60">
+                                        {rec.consoleLogs?.length ?? 0} logs · {rec.networkLogs?.length ?? 0} requests
+                                    </p>
+                                </div>
+                                {/* Discard button */}
+                                <span
+                                    role="button"
+                                    onClick={(e) => { e.stopPropagation(); onDiscard(rec.id); }}
+                                    className="absolute -top-1.5 -right-1.5 flex size-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:scale-110"
+                                    title="Discard this recording"
+                                >
+                                    ✕
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
     );
 }
 
