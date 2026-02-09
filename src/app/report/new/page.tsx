@@ -590,13 +590,37 @@ function NewReportPageInner() {
         } catch { return []; }
     }, []);
 
+    // Screenshot persist helpers
+    const saveScreenshotToLocal = useCallback((data: ScreenshotPayload | null) => {
+        try {
+            if (data) {
+                localStorage.setItem('jam_screenshot', JSON.stringify(data));
+            } else {
+                localStorage.removeItem('jam_screenshot');
+            }
+        } catch { /* quota exceeded — ignore */ }
+    }, []);
+
+    const loadScreenshotFromLocal = useCallback((): ScreenshotPayload | null => {
+        try {
+            const raw = localStorage.getItem('jam_screenshot');
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    }, []);
+
     // Initialize from localStorage (survives refresh)
     const [persisted] = useState(() => loadFromLocal());
+    const [persistedScreenshot] = useState(() => loadScreenshotFromLocal());
     const [recordings, setRecordings] = useState<RecordingPayload[]>(persisted);
     const [recording, setRecording] = useState<RecordingPayload | null>(persisted[0] ?? null);
-    const [loading, setLoading] = useState(persisted.length === 0);
-    const [screenshotData, setScreenshotData] = useState<ScreenshotPayload | null>(null);
-    const [title, setTitle] = useState(isScreenshot ? "Unlabeled Screenshot" : "Unlabeled Recording");
+    const hasPersistedData = persisted.length > 0 || persistedScreenshot !== null;
+    const [loading, setLoading] = useState(!hasPersistedData);
+    const [screenshotData, setScreenshotData] = useState<ScreenshotPayload | null>(persistedScreenshot);
+    const [title, setTitle] = useState(
+        persistedScreenshot ? (persistedScreenshot.title || "Unlabeled Screenshot")
+        : isScreenshot ? "Unlabeled Screenshot"
+        : "Unlabeled Recording"
+    );
     const [description, setDescription] = useState("");
     const [activeLogTab, setActiveLogTab] = useState("console");
     const [saving, setSaving] = useState(false);
@@ -632,6 +656,7 @@ function NewReportPageInner() {
             if (event.data?.type === "TRANSFER_SCREENSHOT") {
                 const incoming = event.data.payload as ScreenshotPayload;
                 setScreenshotData(incoming);
+                saveScreenshotToLocal(incoming);
                 setTitle(incoming.title || "Unlabeled Screenshot");
                 setLoading(false);
             }
@@ -764,6 +789,7 @@ function NewReportPageInner() {
             // 4. Clean up
             if (screenshotData) {
                 setScreenshotData(null);
+                saveScreenshotToLocal(null);
             } else {
                 handleDiscardRecording(recording!.id);
             }
@@ -860,6 +886,7 @@ function NewReportPageInner() {
                             <Button variant="ghost" size="sm" onClick={() => {
                                 if (screenshotData) {
                                     setScreenshotData(null);
+                                    saveScreenshotToLocal(null);
                                 } else {
                                     handleDiscardRecording(recording!.id);
                                 }
