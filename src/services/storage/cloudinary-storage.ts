@@ -56,7 +56,6 @@ export class CloudinaryStorageProvider implements StorageProvider {
                     resource_type: "video",
                     public_id: key.replace(/\.[^/.]+$/, ""), // strip extension
                     folder: "jam-clone",
-                    format: "webm",
                     overwrite: true,
                 },
                 (error, result) => {
@@ -85,6 +84,7 @@ export class CloudinaryStorageProvider implements StorageProvider {
 
     getPublicUrl(key: string): string {
         const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-        return `https://res.cloudinary.com/${cloudName}/video/upload/${key}.webm`;
+        // Serve original quality — no transformations in the URL path
+        return `https://res.cloudinary.com/${cloudName}/video/upload/${key}`;
     }
 }
