@@ -12,6 +12,16 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = {
@@ -53,6 +63,11 @@ const Icons = {
     bug: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 12m-3 0a3 3 0 106 0 3 3 0 10-6 0M3 12h3m12 0h3M12 3v3m0 12v3M5.636 5.636l2.121 2.121m8.486 8.486l2.121 2.121M5.636 18.364l2.121-2.121m8.486-8.486l2.121-2.121" />
+        </svg>
+    ),
+    download: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
         </svg>
     ),
 };
@@ -101,6 +116,7 @@ export default function DashboardPage() {
     const [reports, setReports] = useState<ReportSummary[]>([]);
     const [loading, setLoading] = useState(true);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [usage, setUsage] = useState<UsageInfo | null>(null);
 
     const fetchUsage = useCallback(async () => {
@@ -363,7 +379,34 @@ export default function DashboardPage() {
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <button
-                                                            onClick={() => handleDelete(report.id)}
+                                                            onClick={async (e) => {
+                                                                e.preventDefault();
+                                                                try {
+                                                                    const res = await fetch(report.videoUrl);
+                                                                    const blob = await res.blob();
+                                                                    const url = URL.createObjectURL(blob);
+                                                                    const a = document.createElement('a');
+                                                                    a.href = url;
+                                                                    a.download = `${(report.title || 'recording').replace(/[^a-zA-Z0-9_\- ]/g, '')}.webm`;
+                                                                    document.body.appendChild(a);
+                                                                    a.click();
+                                                                    document.body.removeChild(a);
+                                                                    URL.revokeObjectURL(url);
+                                                                } catch (err) {
+                                                                    console.error('Download failed:', err);
+                                                                }
+                                                            }}
+                                                            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-all hover:bg-muted hover:text-foreground"
+                                                        >
+                                                            {Icons.download}
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>Download video</TooltipContent>
+                                                </Tooltip>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            onClick={() => setConfirmDeleteId(report.id)}
                                                             disabled={deletingId === report.id}
                                                             className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                                                         >
@@ -413,6 +456,32 @@ export default function DashboardPage() {
                     )}
                 </main>
             </div>
+
+            {/* ── Delete Confirmation Dialog ──────────────── */}
+            <AlertDialog open={!!confirmDeleteId} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this report?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete the recording and all associated data. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={!!deletingId}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={async () => {
+                                if (!confirmDeleteId) return;
+                                await handleDelete(confirmDeleteId);
+                                setConfirmDeleteId(null);
+                            }}
+                        >
+                            {deletingId ? "Deleting…" : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </TooltipProvider>
     );
 }

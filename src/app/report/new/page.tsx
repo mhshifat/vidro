@@ -107,6 +107,11 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
         </svg>
     ),
+    download: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
+        </svg>
+    ),
 };
 
 /* ─── Types ────────────────────────────────────────────────────── */
@@ -755,6 +760,27 @@ export default function NewReportPage() {
                             />
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5"
+                                        onClick={() => {
+                                            const a = document.createElement('a');
+                                            a.href = recording.videoUrl;
+                                            a.download = `${title.trim() || 'recording'}.webm`;
+                                            document.body.appendChild(a);
+                                            a.click();
+                                            document.body.removeChild(a);
+                                        }}
+                                    >
+                                        {Icons.download}
+                                        Download
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Download video</TooltipContent>
+                            </Tooltip>
                             <Button variant="ghost" size="sm" onClick={() => handleDiscardRecording(recording.id)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
                                 Discard
                             </Button>

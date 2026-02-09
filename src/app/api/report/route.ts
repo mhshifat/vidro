@@ -22,6 +22,11 @@ const createReportSchema = z.object({
     networkLogs: z.any().optional(),
 });
 
+const updateReportSchema = z.object({
+    title: z.string().min(1, "Title cannot be empty").max(200).optional(),
+    description: z.string().max(5000).optional(),
+});
+
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
@@ -88,5 +93,69 @@ export async function POST(req: Request) {
     } catch (error) {
         console.error("Failed to create report:", error);
         return NextResponse.json({ error: "Failed to save report. Please try again." }, { status: 500 });
+    }
+}
+
+export async function PATCH(req: Request) {
+    try {
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get("id");
+        if (!id) {
+            return NextResponse.json({ error: "Missing report id." }, { status: 400 });
+        }
+
+        // Auth check
+        const cookieStore = await cookies();
+        const token = cookieStore.get("token")?.value;
+        if (!token) {
+            return NextResponse.json({ error: "Not authenticated. Please log in." }, { status: 401 });
+        }
+        const payload = await JWTManager.verify(token);
+        if (!payload) {
+            return NextResponse.json({ error: "Session expired. Please log in again." }, { status: 401 });
+        }
+
+        // Ownership check
+        const existing = await prisma.report.findUnique({ where: { id } });
+        if (!existing) {
+            return NextResponse.json({ error: "Report not found." }, { status: 404 });
+        }
+        if (existing.userId !== payload.userId) {
+            return NextResponse.json({ error: "You can only edit your own reports." }, { status: 403 });
+        }
+
+        // Parse & validate body
+        let body: Record<string, unknown>;
+        try {
+            body = await req.json();
+        } catch {
+            return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+        }
+
+        const parsed = updateReportSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: "Invalid update data.", details: parsed.error.flatten().fieldErrors },
+                { status: 400 }
+            );
+        }
+
+        const updateData: Record<string, string> = {};
+        if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
+        if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ error: "No fields to update." }, { status: 400 });
+        }
+
+        const updated = await prisma.report.update({
+            where: { id },
+            data: updateData,
+        });
+
+        return NextResponse.json(serializeReport(updated));
+    } catch (error) {
+        console.error("Failed to update report:", error);
+        return NextResponse.json({ error: "Failed to update report. Please try again." }, { status: 500 });
     }
 }

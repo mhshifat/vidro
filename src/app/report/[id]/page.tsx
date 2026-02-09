@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
 import {
     Tooltip,
     TooltipContent,
@@ -98,6 +99,28 @@ const Icons = {
     check: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+    ),
+    edit: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+        </svg>
+    ),
+    close: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    ),
+    spinner: (
+        <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+    ),
+    download: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
         </svg>
     ),
 };
@@ -386,6 +409,14 @@ export default function ReportPage() {
     const [activeLogTab, setActiveLogTab] = useState("console");
     const [copied, setCopied] = useState(false);
 
+    // Edit state
+    const [isOwner, setIsOwner] = useState(false);
+    const [editing, setEditing] = useState(false);
+    const [editTitle, setEditTitle] = useState("");
+    const [editDescription, setEditDescription] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
+
     useEffect(() => {
         async function fetchReport() {
             try {
@@ -402,10 +433,85 @@ export default function ReportPage() {
         fetchReport();
     }, [id]);
 
+    // Check ownership
+    useEffect(() => {
+        async function checkOwnership() {
+            if (!report) return;
+            try {
+                const res = await fetch("/api/trpc/auth.me");
+                if (!res.ok) return;
+                const data = await res.json();
+                const userId = data?.result?.data?.id;
+                setIsOwner(userId === report.userId);
+            } catch {
+                setIsOwner(false);
+            }
+        }
+        checkOwnership();
+    }, [report]);
+
+    const handleStartEditing = () => {
+        if (!report) return;
+        setEditTitle(report.title || "");
+        setEditDescription(report.description || "");
+        setSaveError(null);
+        setEditing(true);
+    };
+
+    const handleCancelEditing = () => {
+        setEditing(false);
+        setSaveError(null);
+    };
+
+    const handleSave = async () => {
+        if (!report || saving) return;
+        setSaving(true);
+        setSaveError(null);
+        try {
+            const res = await fetch(`/api/report?id=${report.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: editTitle.trim() || "Untitled Bug Report",
+                    description: editDescription.trim(),
+                }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || "Failed to update report.");
+            }
+            const updated = await res.json();
+            setReport(updated);
+            setEditing(false);
+        } catch (err) {
+            setSaveError(err instanceof Error ? err.message : "Failed to update report.");
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleCopyLink = async () => {
         await navigator.clipboard.writeText(window.location.href);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDownload = async () => {
+        if (!report) return;
+        try {
+            const res = await fetch(report.videoUrl);
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${(report.title || 'recording').replace(/[^a-zA-Z0-9_\- ]/g, '')}.webm`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download failed:', err);
+        }
     };
 
     if (loading) {
@@ -473,7 +579,18 @@ export default function ReportPage() {
                                 <TooltipContent>Back to Dashboard</TooltipContent>
                             </Tooltip>
                             <Separator orientation="vertical" className="h-5" />
-                            <h1 className="text-base font-bold truncate">{report.title || "Untitled Bug Report"}</h1>
+                            {editing ? (
+                                <Input
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    placeholder="Report title"
+                                    className="text-base font-bold h-8 max-w-md"
+                                    autoFocus
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") handleCancelEditing(); }}
+                                />
+                            ) : (
+                                <h1 className="text-base font-bold truncate">{report.title || "Untitled Bug Report"}</h1>
+                            )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             <Badge variant="secondary" className="text-[11px] font-mono tabular-nums gap-1.5 hidden sm:inline-flex">
@@ -482,6 +599,54 @@ export default function ReportPage() {
                                     month: "short", day: "numeric", year: "numeric",
                                 })}
                             </Badge>
+                            {isOwner && !editing && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleStartEditing}
+                                    className="gap-1.5 transition-all"
+                                >
+                                    {Icons.edit}
+                                    Edit
+                                </Button>
+                            )}
+                            {editing && (
+                                <>
+                                    <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={handleCancelEditing}
+                                        disabled={saving}
+                                        className="gap-1.5"
+                                    >
+                                        {Icons.close}
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSave}
+                                        disabled={saving}
+                                        className="gap-1.5"
+                                    >
+                                        {saving ? Icons.spinner : Icons.check}
+                                        {saving ? "Saving..." : "Save"}
+                                    </Button>
+                                </>
+                            )}
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleDownload}
+                                        className="gap-1.5"
+                                    >
+                                        {Icons.download}
+                                        <span className="hidden sm:inline">Download</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Download video</TooltipContent>
+                            </Tooltip>
                             <Button
                                 size="sm"
                                 variant="outline"
@@ -555,9 +720,25 @@ export default function ReportPage() {
                                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Description</CardTitle>
                             </CardHeader>
                             <CardContent className="pt-2 pb-4">
-                                <p className="text-sm text-foreground/80 leading-relaxed min-h-16">
-                                    {report.description || "No description provided."}
-                                </p>
+                                {editing ? (
+                                    <div className="space-y-2">
+                                        <textarea
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            placeholder="Add a description..."
+                                            rows={3}
+                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-none leading-relaxed"
+                                            onKeyDown={(e) => { if (e.key === "Escape") handleCancelEditing(); }}
+                                        />
+                                        {saveError && (
+                                            <p className="text-xs text-destructive">{saveError}</p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-foreground/80 leading-relaxed min-h-16">
+                                        {report.description || "No description provided."}
+                                    </p>
+                                )}
                             </CardContent>
                         </Card>
 
