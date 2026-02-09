@@ -197,6 +197,7 @@ function VideoPlayer({ src }: { src: string }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
+    const [ready, setReady] = useState(false);
     const [playing, setPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
@@ -218,9 +219,9 @@ function VideoPlayer({ src }: { src: string }) {
 
     const togglePlay = useCallback(() => {
         const vid = videoRef.current;
-        if (!vid) return;
+        if (!vid || !ready) return;
         if (playing) vid.pause(); else vid.play();
-    }, [playing]);
+    }, [playing, ready]);
 
     const toggleFullscreen = useCallback(async () => {
         if (!containerRef.current) return;
@@ -314,7 +315,26 @@ function VideoPlayer({ src }: { src: string }) {
                 onLoadedMetadata={() => {
                     const vid = videoRef.current;
                     if (vid?.videoWidth && vid.videoHeight) setVideoAspectRatio(vid.videoWidth / vid.videoHeight);
-                    if (vid && isFinite(vid.duration) && vid.duration > 0) setDuration(vid.duration);
+                    if (vid && isFinite(vid.duration) && vid.duration > 0) {
+                        setDuration(vid.duration);
+                        setReady(true);
+                    } else if (vid) {
+                        // WebM without duration metadata: seek to end to discover real duration
+                        const onSeeked = () => {
+                            vid.removeEventListener('seeked', onSeeked);
+                            if (vid.currentTime > 0) {
+                                setDuration(vid.currentTime);
+                            }
+                            vid.currentTime = 0;
+                            const onSeekedBack = () => {
+                                vid.removeEventListener('seeked', onSeekedBack);
+                                setReady(true);
+                            };
+                            vid.addEventListener('seeked', onSeekedBack);
+                        };
+                        vid.addEventListener('seeked', onSeeked);
+                        vid.currentTime = 1e10;
+                    }
                 }}
                 onDurationChange={() => {
                     const vid = videoRef.current;
@@ -331,9 +351,18 @@ function VideoPlayer({ src }: { src: string }) {
 
             {/* Big center play button */}
             <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${playing ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
-                <div className="size-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl transition-transform duration-200 hover:scale-110 active:scale-95">
-                    <svg viewBox="0 0 24 24" fill="white" className="size-8 ml-1"><path d="M8 5.14v14l11-7-11-7z" /></svg>
-                </div>
+                {ready ? (
+                    <div className="size-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl transition-transform duration-200 hover:scale-110 active:scale-95">
+                        <svg viewBox="0 0 24 24" fill="white" className="size-8 ml-1"><path d="M8 5.14v14l11-7-11-7z" /></svg>
+                    </div>
+                ) : (
+                    <div className="size-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
+                        <svg className="size-7 animate-spin text-white/70" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                    </div>
+                )}
             </div>
 
             {/* Controls overlay */}
