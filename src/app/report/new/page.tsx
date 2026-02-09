@@ -546,6 +546,16 @@ export default function NewReportPage() {
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
+    // Prevent accidental navigation while uploading
+    useEffect(() => {
+        if (!saving) return;
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+        };
+        window.addEventListener('beforeunload', handler);
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [saving]);
+
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             // New single recording from extension
@@ -766,6 +776,18 @@ export default function NewReportPage() {
                         </div>
                     </div>
                 </header>
+
+                {/* ── Upload In-Progress Banner ────────────────── */}
+                {saving && (
+                    <div className="mx-auto max-w-screen-2xl px-4 sm:px-6 pt-3">
+                        <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+                            <svg className="size-4 shrink-0 text-primary animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span className="flex-1 text-primary font-medium">Uploading your recording — please do not close or leave this page.</span>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Save Error Banner ─────────────────────────── */}
                 {saveError && (
