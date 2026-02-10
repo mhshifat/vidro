@@ -45,7 +45,7 @@ export function Footer() {
               <span className="text-base font-bold tracking-tight">Vidro</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted-foreground">
-              The fastest way to capture, annotate, and share bug reports. Built for modern development teams.
+              The free, open-source alternative to Jam.dev and Loom. Capture, annotate, and share bug reports — built for modern dev teams.
             </p>
 
             {/* Social links */}

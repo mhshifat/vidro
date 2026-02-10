@@ -160,7 +160,7 @@ export default function LoginPage() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black tracking-tight">Vidro</h2>
-                                    <p className="text-xs text-muted-foreground">Bug reporting, reimagined</p>
+                                    <p className="text-xs text-muted-foreground">Your Jam.dev &amp; Loom replacement</p>
                                 </div>
                             </div>
                         </div>
@@ -216,7 +216,7 @@ export default function LoginPage() {
                                     Welcome back
                                 </h1>
                                 <p className="text-sm text-muted-foreground">
-                                    Sign in to access your bug reports and recordings.
+                                    Your free Jam.dev &amp; Loom replacement — sign in to continue.
                                 </p>
                             </div>
 

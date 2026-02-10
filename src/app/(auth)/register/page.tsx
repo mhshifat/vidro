@@ -166,7 +166,7 @@ export default function RegisterPage() {
                                     Create your account
                                 </h1>
                                 <p className="text-sm text-muted-foreground">
-                                    Start capturing and sharing bug reports in seconds.
+                                    Ditch Jam &amp; Loom — start capturing bug reports for free.
                                 </p>
                             </div>
 
@@ -311,7 +311,7 @@ export default function RegisterPage() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black tracking-tight">Vidro</h2>
-                                    <p className="text-xs text-muted-foreground">Bug reporting, reimagined</p>
+                                    <p className="text-xs text-muted-foreground">Your Jam.dev &amp; Loom replacement</p>
                                 </div>
                             </div>
                         </div>
@@ -322,10 +322,10 @@ export default function RegisterPage() {
                             <div className="space-y-3">
                                 <BenefitItem text="500MB secure cloud storage" />
                                 <BenefitItem text="Up to 25 bug reports" />
-                                <BenefitItem text="1080p 60fps screen recording" />
+                                <BenefitItem text="1080p 60fps screen + webcam recording" />
                                 <BenefitItem text="Auto-captured console & network logs" />
                                 <BenefitItem text="Shareable links — no account to view" />
-                                <BenefitItem text="Download recordings anytime" />
+                                <BenefitItem text="Everything Jam & Loom offer, for free" />
                             </div>
                         </div>
 

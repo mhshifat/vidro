@@ -590,13 +590,13 @@ function NewReportPageInner() {
     // Persist helpers (defined before state so we can use for initialization)
     const saveToLocal = useCallback((list: RecordingPayload[]) => {
         try {
-            localStorage.setItem('jam_recordings', JSON.stringify(list));
+            localStorage.setItem('vidro_recordings', JSON.stringify(list));
         } catch { /* quota exceeded — ignore */ }
     }, []);
 
     const loadFromLocal = useCallback((): RecordingPayload[] => {
         try {
-            const raw = localStorage.getItem('jam_recordings');
+            const raw = localStorage.getItem('vidro_recordings');
             return raw ? JSON.parse(raw) : [];
         } catch { return []; }
     }, []);
@@ -605,16 +605,16 @@ function NewReportPageInner() {
     const saveScreenshotToLocal = useCallback((data: ScreenshotPayload | null) => {
         try {
             if (data) {
-                localStorage.setItem('jam_screenshot', JSON.stringify(data));
+                localStorage.setItem('vidro_screenshot', JSON.stringify(data));
             } else {
-                localStorage.removeItem('jam_screenshot');
+                localStorage.removeItem('vidro_screenshot');
             }
         } catch { /* quota exceeded — ignore */ }
     }, []);
 
     const loadScreenshotFromLocal = useCallback((): ScreenshotPayload | null => {
         try {
-            const raw = localStorage.getItem('jam_screenshot');
+            const raw = localStorage.getItem('vidro_screenshot');
             return raw ? JSON.parse(raw) : null;
         } catch { return null; }
     }, []);
@@ -726,7 +726,7 @@ function NewReportPageInner() {
                 setRecording(updated[0]);
             } else {
                 setRecording(null);
-                localStorage.removeItem('jam_recordings');
+                localStorage.removeItem('vidro_recordings');
             }
         }
     };

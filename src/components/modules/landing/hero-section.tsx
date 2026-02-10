@@ -21,18 +21,28 @@ export function HeroSection() {
             </Badge>
           </div>
 
+          {/* Replaces badge */}
+          <div className="mb-4 flex justify-center animate-in fade-in slide-in-from-bottom-3 duration-700 delay-75">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/50 px-4 py-1.5 text-xs font-medium text-muted-foreground">
+              Replaces
+              <span className="font-semibold text-foreground">Jam.dev</span>
+              +
+              <span className="font-semibold text-foreground">Loom</span>
+            </span>
+          </div>
+
           {/* Heading */}
           <h1 className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-7xl">
-            <span className="block text-foreground">Report bugs</span>
+            <span className="block text-foreground">The open-source</span>
             <span className="mt-1 block bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 bg-clip-text text-transparent">
-              in one click
+              Jam &amp; Loom alternative
             </span>
           </h1>
 
           {/* Sub-heading */}
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 sm:text-xl">
-            Capture screenshots, record your screen, annotate with precision — and share
-            instant bug reports with your team. No more &quot;it works on my machine.&quot;
+            Capture screenshots, record your screen with webcam &amp; mic, annotate with precision
+            — and share instant bug reports with your team. A faster, free replacement for Jam.dev and Loom.
           </p>
 
           {/* CTA buttons */}
