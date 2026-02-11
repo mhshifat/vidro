@@ -26,7 +26,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CommentsSection } from "@/components/shared/comments";
+import { CommentsSection, type Comment, type CommentMarker, getCommentMarkers, fmtTimestamp as fmtCommentTs } from "@/components/shared/comments";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = {
@@ -221,7 +221,17 @@ function consoleTypeIcon(type: string) {
 /* ──────────────────────────────────────────────────────────────── */
 /*  Video Player                                                   */
 /* ──────────────────────────────────────────────────────────────── */
-function VideoPlayer({ src }: { src: string }) {
+function VideoPlayer({
+    src,
+    commentMarkers = [],
+    onTimeUpdate: onTimeUpdateCb,
+    onSeekTo,
+}: {
+    src: string;
+    commentMarkers?: CommentMarker[];
+    onTimeUpdate?: (time: number) => void;
+    onSeekTo?: React.MutableRefObject<((t: number) => void) | null>;
+}) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const hideTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -237,6 +247,20 @@ function VideoPlayer({ src }: { src: string }) {
     const [controlsVisible, setControlsVisible] = useState(true);
     const [buffered, setBuffered] = useState(0);
     const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
+    const [hoveredMarker, setHoveredMarker] = useState<CommentMarker | null>(null);
+
+    // Expose seekTo to parent via ref
+    useEffect(() => {
+        if (onSeekTo) {
+            onSeekTo.current = (t: number) => {
+                const vid = videoRef.current;
+                if (vid) {
+                    vid.currentTime = t;
+                    showControls();
+                }
+            };
+        }
+    });
 
     const showControls = useCallback(() => {
         setControlsVisible(true);
@@ -337,6 +361,7 @@ function VideoPlayer({ src }: { src: string }) {
                     const vid = videoRef.current;
                     if (!vid) return;
                     setCurrentTime(vid.currentTime);
+                    onTimeUpdateCb?.(vid.currentTime);
                     if (!isFinite(vid.duration) || vid.duration === 0) {
                         setDuration(prev => Math.max(prev, vid.currentTime));
                     }
@@ -403,7 +428,7 @@ function VideoPlayer({ src }: { src: string }) {
                 <div className="relative px-4 pb-3 pt-10 space-y-2">
                     {/* Progress bar */}
                     <div
-                        className="group/progress relative h-1.5 hover:h-2.5 transition-all duration-200 cursor-pointer rounded-full bg-white/20 overflow-hidden"
+                        className="group/progress relative h-1.5 hover:h-2.5 transition-all duration-200 cursor-pointer rounded-full bg-white/20"
                         onClick={(e) => {
                             e.stopPropagation();
                             const vid = videoRef.current;
@@ -414,9 +439,49 @@ function VideoPlayer({ src }: { src: string }) {
                             vid.currentTime = ((e.clientX - rect.left) / rect.width) * seekDuration;
                         }}
                     >
-                        <div className="absolute inset-y-0 left-0 bg-white/20 rounded-full transition-[width] duration-300" style={{ width: `${buffered}%` }} />
-                        <div className="absolute inset-y-0 left-0 bg-white rounded-full transition-[width] duration-100" style={{ width: `${progress}%` }} />
+                        <div className="absolute inset-y-0 left-0 bg-white/20 rounded-full transition-[width] duration-300 overflow-hidden" style={{ width: `${buffered}%` }} />
+                        <div className="absolute inset-y-0 left-0 bg-white rounded-full transition-[width] duration-100 overflow-hidden" style={{ width: `${progress}%` }} />
                         <div className="absolute top-1/2 -translate-y-1/2 size-3.5 rounded-full bg-white shadow-lg shadow-black/40 opacity-0 group-hover/progress:opacity-100 transition-opacity duration-200 -ml-1.5" style={{ left: `${progress}%` }} />
+
+                        {/* Comment markers */}
+                        {duration > 0 && commentMarkers.map((marker) => {
+                            const pct = (marker.timestamp / duration) * 100;
+                            if (pct < 0 || pct > 100) return null;
+                            const isHovered = hoveredMarker?.id === marker.id;
+                            return (
+                                <div
+                                    key={marker.id}
+                                    className="absolute z-10"
+                                    style={{ left: `${pct}%`, top: "50%", transform: "translate(-50%, -50%)" }}
+                                    onMouseEnter={(e) => { e.stopPropagation(); setHoveredMarker(marker); }}
+                                    onMouseLeave={(e) => { e.stopPropagation(); setHoveredMarker(null); }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const vid = videoRef.current;
+                                        if (vid) vid.currentTime = marker.timestamp;
+                                    }}
+                                >
+                                    {/* Marker dot */}
+                                    <div className="size-3 rounded-full bg-amber-400 border-2 border-white shadow-md cursor-pointer hover:scale-125 transition-transform" />
+
+                                    {/* Hover tooltip */}
+                                    {isHovered && (
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                                            <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-xl border border-white/10 min-w-48 max-w-72">
+                                                <div className="flex items-center gap-1.5 mb-1">
+                                                    <span className="text-[10px] font-mono text-amber-400 font-bold">{fmtCommentTs(marker.timestamp)}</span>
+                                                    <span className="text-[10px] text-white/50">•</span>
+                                                    <span className="text-[10px] text-white/70 truncate">{marker.userName}</span>
+                                                </div>
+                                                <p className="text-xs text-white/90 leading-relaxed line-clamp-3">{marker.body}</p>
+                                            </div>
+                                            {/* Arrow */}
+                                            <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-gray-900/95 border-r border-b border-white/10 rotate-45" />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
 
                     {/* Bottom controls */}
@@ -480,6 +545,19 @@ export default function ReportPage() {
     const [saveError, setSaveError] = useState<string | null>(null);
     const [generating, setGenerating] = useState(false);
     const [generateError, setGenerateError] = useState<string | null>(null);
+
+    // Video ↔ Comments state
+    const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
+    const [commentMarkers, setCommentMarkers] = useState<CommentMarker[]>([]);
+    const seekToRef = useRef<((t: number) => void) | null>(null);
+
+    const handleCommentsLoaded = useCallback((loadedComments: Comment[]) => {
+        setCommentMarkers(getCommentMarkers(loadedComments));
+    }, []);
+
+    const handleSeekTo = useCallback((seconds: number) => {
+        seekToRef.current?.(seconds);
+    }, []);
 
     useEffect(() => {
         async function fetchReport() {
@@ -838,7 +916,12 @@ export default function ReportPage() {
                                 />
                             </div>
                         ) : report.videoUrl ? (
-                            <VideoPlayer src={report.videoUrl} />
+                            <VideoPlayer
+                                src={report.videoUrl}
+                                commentMarkers={commentMarkers}
+                                onTimeUpdate={setVideoCurrentTime}
+                                onSeekTo={seekToRef}
+                            />
                         ) : null}
                     </div>
 
@@ -1022,7 +1105,12 @@ export default function ReportPage() {
                         {/* ── Comments Section ──────────────────── */}
                         <Card className="lg:col-span-12 py-0 overflow-hidden">
                             <CardContent className="p-5">
-                                <CommentsSection reportId={report.id} />
+                                <CommentsSection
+                                    reportId={report.id}
+                                    videoTimestamp={report.type === 'VIDEO' ? videoCurrentTime : undefined}
+                                    onSeekTo={report.type === 'VIDEO' ? handleSeekTo : undefined}
+                                    onCommentsLoaded={handleCommentsLoaded}
+                                />
                             </CardContent>
                         </Card>
                     </div>

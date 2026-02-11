@@ -13,7 +13,8 @@ async function getAuthUser() {
     return payload ? (payload.userId as string) : null;
 }
 
-function serializeComment(c: Record<string, unknown> & { user?: { id: string; name: string | null; email: string }; replies?: unknown[] }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function serializeComment(c: any): any {
     return {
         ...c,
         user: c.user
@@ -28,6 +29,7 @@ const createSchema = z.object({
     reportId: z.string().min(1),
     body: z.string().min(1).max(5000),
     parentId: z.string().optional(),
+    timestamp: z.number().min(0).optional(),
 });
 
 const updateSchema = z.object({
@@ -77,7 +79,7 @@ export async function POST(req: Request) {
                 { status: 400 },
             );
         }
-        const { reportId, body: text, parentId } = parsed.data;
+        const { reportId, body: text, parentId, timestamp } = parsed.data;
 
         // Validate report exists
         const report = await prisma.report.findUnique({ where: { id: reportId } });
@@ -99,6 +101,7 @@ export async function POST(req: Request) {
                 reportId,
                 userId,
                 parentId: parentId ?? null,
+                timestamp: timestamp ?? null,
             },
             include: { user: { select: { id: true, name: true, email: true } } },
         });

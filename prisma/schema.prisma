@@ -63,6 +63,7 @@ enum ReportType {
 model Comment {
   id        String   @id @default(cuid())
   body      String
+  timestamp Float?   @map("timestamp") // video timestamp in seconds (null = no timestamp)
   
   reportId  String   @map("report_id")
   report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)

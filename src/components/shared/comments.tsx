@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 /* ─── Types ────────────────────────────────────────────────────── */
 export interface CommentUser {
@@ -16,6 +17,7 @@ export interface CommentUser {
 export interface Comment {
     id: string;
     body: string;
+    timestamp: number | null;
     reportId: string;
     userId: string;
     parentId: string | null;
@@ -26,6 +28,14 @@ export interface Comment {
 
 export interface CommentNode extends Comment {
     children: CommentNode[];
+}
+
+/** Minimal marker data exposed to the video player progress bar */
+export interface CommentMarker {
+    id: string;
+    timestamp: number;
+    body: string;
+    userName: string;
 }
 
 /* ─── Icons ────────────────────────────────────────────────────── */
@@ -67,6 +77,16 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
     ),
+    clock: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    ),
+    close: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    ),
 };
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
@@ -74,12 +94,10 @@ function buildTree(comments: Comment[]): CommentNode[] {
     const map = new Map<string, CommentNode>();
     const roots: CommentNode[] = [];
 
-    // Initialize all nodes
     for (const c of comments) {
         map.set(c.id, { ...c, children: [] });
     }
 
-    // Build parent-child relationships
     for (const c of comments) {
         const node = map.get(c.id)!;
         if (c.parentId && map.has(c.parentId)) {
@@ -117,6 +135,12 @@ function timeAgo(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+export function fmtTimestamp(seconds: number): string {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 /* ─── Comment Input ────────────────────────────────────────────── */
 function CommentInput({
     onSubmit,
@@ -124,27 +148,42 @@ function CommentInput({
     autoFocus = false,
     onCancel,
     submitLabel = "Comment",
+    videoTimestamp,
 }: {
-    onSubmit: (body: string) => Promise<void>;
+    onSubmit: (body: string, timestamp?: number) => Promise<void>;
     placeholder?: string;
     autoFocus?: boolean;
     onCancel?: () => void;
     submitLabel?: string;
+    videoTimestamp?: number | null;
 }) {
     const [body, setBody] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    const [attachTimestamp, setAttachTimestamp] = useState(true);
+
+    // Reset attach state when timestamp changes
+    useEffect(() => {
+        if (videoTimestamp != null && videoTimestamp >= 0) {
+            setAttachTimestamp(true);
+        }
+    }, [videoTimestamp]);
 
     const handleSubmit = async () => {
         const trimmed = body.trim();
         if (!trimmed || submitting) return;
         setSubmitting(true);
         try {
-            await onSubmit(trimmed);
+            const ts = attachTimestamp && videoTimestamp != null && videoTimestamp >= 0
+                ? videoTimestamp
+                : undefined;
+            await onSubmit(trimmed, ts);
             setBody("");
         } finally {
             setSubmitting(false);
         }
     };
+
+    const showTimestampBadge = videoTimestamp != null && videoTimestamp >= 0 && attachTimestamp;
 
     return (
         <div className="space-y-2">
@@ -162,16 +201,47 @@ function CommentInput({
                     if (e.key === "Escape" && onCancel) onCancel();
                 }}
             />
-            <div className="flex items-center gap-2 justify-end">
-                {onCancel && (
-                    <Button size="sm" variant="ghost" onClick={onCancel} disabled={submitting}>
-                        Cancel
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    {showTimestampBadge && (
+                        <Badge
+                            variant="secondary"
+                            className="text-[10px] h-5 px-1.5 gap-1 font-mono cursor-default"
+                        >
+                            {Icons.clock}
+                            {fmtTimestamp(videoTimestamp!)}
+                            <button
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    setAttachTimestamp(false);
+                                }}
+                                className="ml-0.5 hover:text-destructive transition-colors"
+                                title="Remove timestamp"
+                            >
+                                {Icons.close}
+                            </button>
+                        </Badge>
+                    )}
+                    {videoTimestamp != null && videoTimestamp >= 0 && !attachTimestamp && (
+                        <button
+                            onClick={() => setAttachTimestamp(true)}
+                            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            + Add timestamp ({fmtTimestamp(videoTimestamp)})
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-2">
+                    {onCancel && (
+                        <Button size="sm" variant="ghost" onClick={onCancel} disabled={submitting}>
+                            Cancel
+                        </Button>
+                    )}
+                    <Button size="sm" onClick={handleSubmit} disabled={!body.trim() || submitting}>
+                        {submitting ? Icons.spinner : null}
+                        {submitLabel}
                     </Button>
-                )}
-                <Button size="sm" onClick={handleSubmit} disabled={!body.trim() || submitting}>
-                    {submitting ? Icons.spinner : null}
-                    {submitLabel}
-                </Button>
+                </div>
             </div>
         </div>
     );
@@ -186,6 +256,7 @@ function CommentTreeNode({
     onReply,
     onEdit,
     onDelete,
+    onSeekTo,
 }: {
     node: CommentNode;
     currentUserId: string | null;
@@ -194,6 +265,7 @@ function CommentTreeNode({
     onReply: (parentId: string, body: string) => Promise<void>;
     onEdit: (id: string, body: string) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
+    onSeekTo?: (seconds: number) => void;
 }) {
     const [replying, setReplying] = useState(false);
     const [editing, setEditing] = useState(false);
@@ -242,7 +314,6 @@ function CommentTreeNode({
                             {getInitials(node.user)}
                         </AvatarFallback>
                     </Avatar>
-                    {/* Vertical thread line */}
                     {hasReplies && !collapsed && (
                         <div className="w-px flex-1 bg-border mt-1" />
                     )}
@@ -251,10 +322,20 @@ function CommentTreeNode({
                 {/* Content */}
                 <div className="flex-1 min-w-0 pb-4">
                     {/* Header */}
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-sm font-semibold truncate">
                             {node.user.name || node.user.email.split("@")[0]}
                         </span>
+                        {node.timestamp != null && (
+                            <Badge
+                                variant="outline"
+                                className="text-[10px] h-4 px-1 gap-0.5 font-mono cursor-pointer hover:bg-primary/10 hover:text-primary transition-colors"
+                                onClick={() => onSeekTo?.(node.timestamp!)}
+                            >
+                                {Icons.clock}
+                                {fmtTimestamp(node.timestamp)}
+                            </Badge>
+                        )}
                         <span className="text-xs text-muted-foreground">{timeAgo(node.createdAt)}</span>
                         {node.createdAt !== node.updatedAt && (
                             <span className="text-[10px] text-muted-foreground italic">(edited)</span>
@@ -288,7 +369,7 @@ function CommentTreeNode({
                             </div>
                         </div>
                     ) : (
-                        <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap wrap-break-word">
+                        <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap overflow-wrap-anywhere">
                             {node.body}
                         </p>
                     )}
@@ -375,6 +456,7 @@ function CommentTreeNode({
                                     onReply={onReply}
                                     onEdit={onEdit}
                                     onDelete={onDelete}
+                                    onSeekTo={onSeekTo}
                                 />
                             ))}
                         </div>
@@ -386,7 +468,17 @@ function CommentTreeNode({
 }
 
 /* ─── Main Comments Section ────────────────────────────────────── */
-export function CommentsSection({ reportId }: { reportId: string }) {
+export function CommentsSection({
+    reportId,
+    videoTimestamp,
+    onSeekTo,
+    onCommentsLoaded,
+}: {
+    reportId: string;
+    videoTimestamp?: number | null;
+    onSeekTo?: (seconds: number) => void;
+    onCommentsLoaded?: (comments: Comment[]) => void;
+}) {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -415,23 +507,24 @@ export function CommentsSection({ reportId }: { reportId: string }) {
             if (!res.ok) return;
             const data = await res.json();
             setComments(data);
+            onCommentsLoaded?.(data);
         } catch {
             console.error("Failed to fetch comments");
         } finally {
             setLoading(false);
         }
-    }, [reportId]);
+    }, [reportId, onCommentsLoaded]);
 
     useEffect(() => {
         fetchComments();
     }, [fetchComments]);
 
     // Create a new top-level comment
-    const handleCreate = async (body: string) => {
+    const handleCreate = async (body: string, timestamp?: number) => {
         const res = await fetch("/api/comments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ reportId, body }),
+            body: JSON.stringify({ reportId, body, timestamp }),
         });
         if (!res.ok) throw new Error("Failed to post comment");
         await fetchComments();
@@ -480,7 +573,10 @@ export function CommentsSection({ reportId }: { reportId: string }) {
 
             {/* New comment input */}
             {currentUserId ? (
-                <CommentInput onSubmit={handleCreate} />
+                <CommentInput
+                    onSubmit={handleCreate}
+                    videoTimestamp={videoTimestamp}
+                />
             ) : (
                 <p className="text-sm text-muted-foreground text-center py-2">
                     Log in to leave a comment.
@@ -510,10 +606,23 @@ export function CommentsSection({ reportId }: { reportId: string }) {
                             onReply={handleReply}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onSeekTo={onSeekTo}
                         />
                     ))}
                 </div>
             )}
         </div>
     );
+}
+
+/** Extract comment markers for the video progress bar */
+export function getCommentMarkers(comments: Comment[]): CommentMarker[] {
+    return comments
+        .filter((c): c is Comment & { timestamp: number } => c.timestamp != null)
+        .map((c) => ({
+            id: c.id,
+            timestamp: c.timestamp,
+            body: c.body.length > 120 ? c.body.slice(0, 120) + "\u2026" : c.body,
+            userName: c.user.name || c.user.email.split("@")[0],
+        }));
 }
