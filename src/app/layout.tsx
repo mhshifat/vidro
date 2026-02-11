@@ -16,7 +16,10 @@ import { TRPCProvider } from "@/trpc/provider";
 
 export const metadata: Metadata = {
   title: "Vidro",
-  description: "Bug reporting tool",
+  description: "AI-powered screen recording & bug reporting",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
