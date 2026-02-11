@@ -600,7 +600,7 @@ function VideoPlayer({
 
                                     {/* Hover tooltip */}
                                     {isHovered && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150 z-30">
                                             <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-xl border border-white/10 min-w-48 max-w-72">
                                                 <div className="flex items-center gap-1.5 mb-1">
                                                     <span className="text-[10px] font-mono text-amber-400 font-bold">{fmtCommentTs(marker.timestamp)}</span>
@@ -617,8 +617,8 @@ function VideoPlayer({
                             );
                         })}
 
-                        {/* Thumbnail preview on hover */}
-                        {hoverTime != null && (
+                        {/* Thumbnail preview on hover (hidden when a comment marker is hovered) */}
+                        {hoverTime != null && !hoveredMarker && (
                             <div className="absolute z-20 pointer-events-none" style={{ left: `${hoverX}px`, bottom: "100%", transform: "translateX(-50%)" }}>
                                 <div className="mb-2 flex flex-col items-center">
                                     {thumbnailUrl && (
