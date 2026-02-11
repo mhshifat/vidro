@@ -1,5 +1,8 @@
 import { Pool } from "pg";
 import Cursor from "pg-cursor";
+// ...existing code...
+
+export class ReportRepository {
     /**
      * Stream large report datasets for a user (pg-cursor)
      */

@@ -340,29 +340,7 @@ function NewReportPageInner() {
                                 : 'Start a recording from the Vidro extension, then come back here.'}
                         </p>
                     </div>
-                    // Determine the active source (screenshot or recording)
-                    const activeSource = screenshotData || recording;
 
-                    if (!activeSource) {
-                        return (
-                            <div className="min-h-screen bg-background flex items-center justify-center">
-                                <div className="flex flex-col items-center gap-6 animate-in fade-in duration-500">
-                                    <span className="opacity-30">{Icons.inbox()}</span>
-                                    <div className="text-center space-y-2">
-                                        <h2 className="text-lg font-bold tracking-tight">{isScreenshot ? 'No Screenshot' : 'No Recordings'}</h2>
-                                        <p className="text-sm text-muted-foreground max-w-xs">
-                                            {isScreenshot
-                                                ? 'Take a screenshot from the Vidro extension, then come back here.'
-                                                : 'Start a recording from the Vidro extension, then come back here.'}
-                                        </p>
-                                    </div>
-                                    <Button variant="outline" onClick={() => router.push('/dashboard')}>
-                                        Go to Dashboard
-                                    </Button>
-                                </div>
-                            </div>
-                        );
-                    }
 
                     const consoleErrors = activeSource.consoleLogs?.filter((l) => l.type === "error").length ?? 0;
                     const consoleWarnings = activeSource.consoleLogs?.filter((l) => l.type === "warn").length ?? 0;

@@ -6,8 +6,7 @@ import { JWTManager } from "@/lib/jwt";
 import { ReportService } from "@/services/report-service";
 import { Logger } from "@/lib/logger";
 import { prisma } from "@/lib/db";
-import { DashboardContent } from "@/components/modules/dashboard/dashboard-content";
-import { DashboardSkeleton } from "@/components/modules/dashboard/dashboard-skeleton";
+import { DashboardContent, DashboardSkeleton } from "@/components/modules/dashboard";
 import type { UsageInfo, ReportSummary } from "@/types/dashboard";
 
 const REPORTS_PER_PAGE = 12;
@@ -125,6 +124,9 @@ async function DashboardData() {
     );
 }
 
+
+// Dashboard page component
+export default function DashboardPage() {
     const meta = getSeoMeta("dashboard");
     return (
         <>
