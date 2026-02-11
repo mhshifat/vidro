@@ -8,7 +8,6 @@ import {
   VideoToolsSection,
   HowItWorksSection,
   StatsSection,
-  ArchitectureSection,
   CtaSection,
   Footer,
 } from "@/components/modules/landing";
