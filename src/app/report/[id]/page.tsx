@@ -26,6 +26,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CommentsSection } from "@/components/shared/comments";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = {
@@ -1016,6 +1017,13 @@ export default function ReportPage() {
                                     </TabsContent>
                                 )}
                             </Tabs>
+                        </Card>
+
+                        {/* ── Comments Section ──────────────────── */}
+                        <Card className="lg:col-span-12 py-0 overflow-hidden">
+                            <CardContent className="p-5">
+                                <CommentsSection reportId={report.id} />
+                            </CardContent>
                         </Card>
                     </div>
                 </main>

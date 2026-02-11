@@ -26,6 +26,7 @@ model User {
   maxReports      Int      @default(25) @map("max_reports")
 
   reports             Report[]
+  comments            Comment[]
 
   @@map("users")
 }
@@ -46,6 +47,8 @@ model Report {
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id])
   
+  comments    Comment[]
+
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -55,4 +58,26 @@ model Report {
 enum ReportType {
   VIDEO
   SCREENSHOT
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  
+  reportId  String   @map("report_id")
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  parentId  String?  @map("parent_id")
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([reportId])
+  @@index([parentId])
+  @@map("comments")
 }
