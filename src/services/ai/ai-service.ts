@@ -1,11 +1,11 @@
 import { AIProvider } from "./ai-provider";
-import { OpenAIProvider } from "./openai-provider";
+import { GroqProvider } from "./groq-provider";
 
 /**
  * Factory for the active AI provider.
  *
  * To switch backends, change the class returned here
- * (e.g. swap OpenAIProvider → GeminiProvider).
+ * (e.g. swap GroqProvider → GeminiProvider → OpenAIProvider).
  * Every provider implements the same AIProvider interface,
  * so the rest of the codebase stays untouched.
  */
@@ -14,7 +14,7 @@ export class AIService {
 
     public static getProvider(): AIProvider {
         if (!this.instance) {
-            this.instance = new OpenAIProvider();
+            this.instance = new GroqProvider();
         }
         return this.instance;
     }
