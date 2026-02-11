@@ -27,6 +27,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CommentsSection, type Comment, type CommentMarker, getCommentMarkers, fmtTimestamp as fmtCommentTs } from "@/components/shared/comments";
+import { AIInsightsPanel, type AIInsightsData } from "@/components/shared/ai-insights";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = {
@@ -176,6 +177,15 @@ interface Report {
     transcript: string | null;
     consoleLogs: ConsoleLogEntry[] | null;
     networkLogs: NetworkLogEntry[] | null;
+    // AI Insights fields
+    severity: string | null;
+    priority: string | null;
+    tags: string[] | null;
+    reproSteps: string | null;
+    rootCause: string | null;
+    logSummary: string | null;
+    stakeholderSummary: string | null;
+    suggestedFix: string | null;
     userId: string;
     createdAt: string;
     updatedAt: string;
@@ -553,6 +563,10 @@ export default function ReportPage() {
 
     const handleCommentsLoaded = useCallback((loadedComments: Comment[]) => {
         setCommentMarkers(getCommentMarkers(loadedComments));
+    }, []);
+
+    const handleInsightsUpdate = useCallback((updated: Partial<AIInsightsData>) => {
+        setReport(prev => prev ? { ...prev, ...updated } : prev);
     }, []);
 
     const handleSeekTo = useCallback((seconds: number) => {
@@ -999,6 +1013,22 @@ export default function ReportPage() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* ── AI Insights Panel ──────────────────── */}
+                        <AIInsightsPanel
+                            reportId={report.id}
+                            insights={{
+                                severity: report.severity,
+                                priority: report.priority,
+                                tags: report.tags,
+                                reproSteps: report.reproSteps,
+                                rootCause: report.rootCause,
+                                logSummary: report.logSummary,
+                                stakeholderSummary: report.stakeholderSummary,
+                                suggestedFix: report.suggestedFix,
+                            }}
+                            onInsightsUpdate={handleInsightsUpdate}
+                        />
 
                         {/* ── Logs Panel (full width) ────────────── */}
                         <Card className="lg:col-span-12 py-0 overflow-hidden">

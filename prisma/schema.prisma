@@ -43,6 +43,16 @@ model Report {
   transcript  String?    @map("transcript")
   consoleLogs Json?      @map("console_logs")
   networkLogs Json?      @map("network_logs")
+
+  // AI Insights fields
+  severity          String?  @map("severity")          // critical, high, medium, low
+  priority          String?  @map("priority")          // p0, p1, p2, p3
+  tags              Json?    @map("tags")              // string[] e.g. ["UI","Crash","API"]
+  reproSteps        String?  @map("repro_steps")       // markdown repro steps
+  rootCause         String?  @map("root_cause")        // root cause analysis text
+  logSummary        String?  @map("log_summary")       // console/network log summary
+  stakeholderSummary String? @map("stakeholder_summary")// non-technical summary
+  suggestedFix      String?  @map("suggested_fix")      // AI-suggested fix
   
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id])

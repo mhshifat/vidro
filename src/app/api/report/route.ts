@@ -32,6 +32,14 @@ const updateReportSchema = z.object({
     title: z.string().min(1, "Title cannot be empty").max(200).optional(),
     description: z.string().max(5000).optional(),
     transcript: z.string().optional(),
+    severity: z.string().optional(),
+    priority: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    reproSteps: z.string().optional(),
+    rootCause: z.string().optional(),
+    logSummary: z.string().optional(),
+    stakeholderSummary: z.string().optional(),
+    suggestedFix: z.string().optional(),
 });
 
 export async function GET(req: Request) {
@@ -150,10 +158,18 @@ export async function PATCH(req: Request) {
             );
         }
 
-        const updateData: Record<string, string> = {};
+        const updateData: Record<string, unknown> = {};
         if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
         if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
         if (parsed.data.transcript !== undefined) updateData.transcript = parsed.data.transcript;
+        if (parsed.data.severity !== undefined) updateData.severity = parsed.data.severity;
+        if (parsed.data.priority !== undefined) updateData.priority = parsed.data.priority;
+        if (parsed.data.tags !== undefined) updateData.tags = parsed.data.tags;
+        if (parsed.data.reproSteps !== undefined) updateData.reproSteps = parsed.data.reproSteps;
+        if (parsed.data.rootCause !== undefined) updateData.rootCause = parsed.data.rootCause;
+        if (parsed.data.logSummary !== undefined) updateData.logSummary = parsed.data.logSummary;
+        if (parsed.data.stakeholderSummary !== undefined) updateData.stakeholderSummary = parsed.data.stakeholderSummary;
+        if (parsed.data.suggestedFix !== undefined) updateData.suggestedFix = parsed.data.suggestedFix;
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: "No fields to update." }, { status: 400 });

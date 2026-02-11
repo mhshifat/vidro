@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
     Tooltip,
     TooltipContent,
@@ -76,6 +77,27 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
         </svg>
     ),
+    search: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+        </svg>
+    ),
+    sparkles: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+        </svg>
+    ),
+    spinner: (
+        <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+    ),
+    close: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    ),
 };
 
 /* ─── Types ────────────────────────────────────────────────────── */
@@ -126,6 +148,42 @@ export default function DashboardPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [usage, setUsage] = useState<UsageInfo | null>(null);
+
+    // AI Search state
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searching, setSearching] = useState(false);
+    const [searchResults, setSearchResults] = useState<ReportSummary[] | null>(null);
+    const [searchInterpretation, setSearchInterpretation] = useState<string | null>(null);
+
+    const handleAISearch = useCallback(async () => {
+        if (!searchQuery.trim()) {
+            setSearchResults(null);
+            setSearchInterpretation(null);
+            return;
+        }
+        setSearching(true);
+        try {
+            const res = await fetch("/api/ai/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query: searchQuery }),
+            });
+            if (!res.ok) throw new Error("Search failed");
+            const data = await res.json();
+            setSearchResults(data.results);
+            setSearchInterpretation(data.interpretation);
+        } catch (err) {
+            console.error("AI Search failed:", err);
+        } finally {
+            setSearching(false);
+        }
+    }, [searchQuery]);
+
+    const clearSearch = useCallback(() => {
+        setSearchQuery("");
+        setSearchResults(null);
+        setSearchInterpretation(null);
+    }, []);
 
     const fetchUsage = useCallback(async () => {
         try {
@@ -233,6 +291,47 @@ export default function DashboardPage() {
                         </p>
                     </div>
 
+                    {/* ── AI Search ───────────────────────────────── */}
+                    {reports.length > 0 && (
+                        <div className="mb-6 space-y-2">
+                            <div className="relative flex gap-2">
+                                <div className="relative flex-1">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                        {searching ? Icons.spinner : Icons.search}
+                                    </span>
+                                    <Input
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === "Enter") handleAISearch(); }}
+                                        placeholder='AI Search — try "critical login bugs" or "API errors this week"'
+                                        className="pl-9 pr-9 h-10"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={clearSearch}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                        >
+                                            {Icons.close}
+                                        </button>
+                                    )}
+                                </div>
+                                <Button onClick={handleAISearch} disabled={searching || !searchQuery.trim()} className="gap-1.5 h-10">
+                                    {Icons.sparkles}
+                                    Search
+                                </Button>
+                            </div>
+                            {searchInterpretation && (
+                                <div className="flex items-center gap-2 text-xs animate-in fade-in duration-200">
+                                    <span className="text-primary">{Icons.sparkles}</span>
+                                    <span className="text-muted-foreground">{searchInterpretation}</span>
+                                    <button onClick={clearSearch} className="text-primary hover:underline ml-auto">
+                                        Clear search
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* ── Stats Overview ──────────────────────────── */}
                     {reports.length > 0 && (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
@@ -319,22 +418,36 @@ export default function DashboardPage() {
                     )}
 
                     {/* ── Reports Grid ────────────────────────────── */}
-                    {reports.length === 0 ? (
-                        <Card className="py-20">
-                            <CardContent className="flex flex-col items-center justify-center gap-4 text-center">
-                                <span className="text-muted-foreground/30">{Icons.inbox}</span>
-                                <div className="space-y-1">
-                                    <h3 className="text-lg font-bold tracking-tight">No reports yet</h3>
-                                    <p className="text-sm text-muted-foreground max-w-sm">
-                                        Use the Vidro browser extension to record your first bug report.
-                                        It captures video, console logs, and network requests automatically.
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {reports.map((report, index) => {
+                    {(() => {
+                        const displayReports = searchResults ?? reports;
+                        if (displayReports.length === 0) {
+                            return (
+                                <Card className="py-20">
+                                    <CardContent className="flex flex-col items-center justify-center gap-4 text-center">
+                                        <span className="text-muted-foreground/30">{Icons.inbox}</span>
+                                        <div className="space-y-1">
+                                            <h3 className="text-lg font-bold tracking-tight">
+                                                {searchResults ? "No matching reports" : "No reports yet"}
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground max-w-sm">
+                                                {searchResults
+                                                    ? "Try adjusting your search query or clear the search."
+                                                    : "Use the Vidro browser extension to record your first bug report. It captures video, console logs, and network requests automatically."
+                                                }
+                                            </p>
+                                        </div>
+                                        {searchResults && (
+                                            <Button variant="outline" size="sm" onClick={clearSearch}>
+                                                Clear Search
+                                            </Button>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            );
+                        }
+                        return (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                {displayReports.map((report, index) => {
                                 const consoleLogs = (report.consoleLogs ?? []) as { type?: string }[];
                                 const networkLogs = (report.networkLogs ?? []) as { status?: number }[];
                                 const errorCount = consoleLogs.filter(l => l.type === "error").length;
@@ -489,7 +602,8 @@ export default function DashboardPage() {
                                 );
                             })}
                         </div>
-                    )}
+                        );
+                    })()}
                 </main>
             </div>
 

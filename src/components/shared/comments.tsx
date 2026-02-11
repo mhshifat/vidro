@@ -87,6 +87,11 @@ const Icons = {
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
         </svg>
     ),
+    sparkles: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+        </svg>
+    ),
 };
 
 /* ─── Helpers ──────────────────────────────────────────────────── */
@@ -273,9 +278,30 @@ function CommentTreeNode({
     const [collapsed, setCollapsed] = useState(false);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
+    const [loadingReplies, setLoadingReplies] = useState(false);
 
     const isOwner = currentUserId === node.userId;
     const hasReplies = node.children.length > 0;
+
+    const handleSuggestReplies = async () => {
+        setLoadingReplies(true);
+        try {
+            const res = await fetch("/api/ai/suggest-reply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reportId, commentId: node.id }),
+            });
+            if (!res.ok) throw new Error("Failed to get suggestions");
+            const data = await res.json();
+            setSuggestedReplies(data.replies || []);
+            setReplying(true);
+        } catch (err) {
+            console.error("AI suggest reply failed:", err);
+        } finally {
+            setLoadingReplies(false);
+        }
+    };
 
     const handleReply = async (body: string) => {
         await onReply(node.id, body);
@@ -388,6 +414,18 @@ function CommentTreeNode({
                                     Reply
                                 </Button>
                             )}
+                            {currentUserId && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary"
+                                    onClick={handleSuggestReplies}
+                                    disabled={loadingReplies}
+                                >
+                                    {loadingReplies ? Icons.spinner : Icons.sparkles}
+                                    AI Reply
+                                </Button>
+                            )}
                             {isOwner && (
                                 <>
                                     <Button
@@ -419,12 +457,37 @@ function CommentTreeNode({
 
                     {/* Reply input */}
                     {replying && (
-                        <div className="mt-3">
+                        <div className="mt-3 space-y-2">
+                            {/* AI Suggested Replies */}
+                            {suggestedReplies.length > 0 && (
+                                <div className="space-y-1.5 animate-in fade-in duration-200">
+                                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider flex items-center gap-1">
+                                        {Icons.sparkles} AI Suggestions
+                                    </p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {suggestedReplies.map((reply, i) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => {
+                                                    handleReply(reply);
+                                                    setSuggestedReplies([]);
+                                                }}
+                                                className="text-xs px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-foreground/80 hover:bg-primary/10 hover:border-primary/30 transition-colors text-left max-w-xs"
+                                            >
+                                                {reply}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <CommentInput
-                                onSubmit={handleReply}
+                                onSubmit={async (body) => {
+                                    await handleReply(body);
+                                    setSuggestedReplies([]);
+                                }}
                                 placeholder={`Reply to ${node.user.name || node.user.email.split("@")[0]}...`}
                                 autoFocus
-                                onCancel={() => setReplying(false)}
+                                onCancel={() => { setReplying(false); setSuggestedReplies([]); }}
                                 submitLabel="Reply"
                             />
                         </div>
