@@ -383,7 +383,7 @@ function VideoPlayer({
             switch (e.key) {
                 case " ": case "k": e.preventDefault(); togglePlay(); break;
                 case "ArrowLeft": e.preventDefault(); vid.currentTime = Math.max(0, vid.currentTime - 5); break;
-                case "ArrowRight": e.preventDefault(); vid.currentTime = Math.min(vid.duration, vid.currentTime + 5); break;
+                case "ArrowRight": e.preventDefault(); { const maxT = isFinite(vid.duration) && vid.duration > 0 ? vid.duration : duration; vid.currentTime = Math.min(maxT, vid.currentTime + 5); } break;
                 case "ArrowUp": e.preventDefault(); vid.volume = Math.min(1, vid.volume + 0.1); setVolume(vid.volume); break;
                 case "ArrowDown": e.preventDefault(); vid.volume = Math.max(0, vid.volume - 0.1); setVolume(vid.volume); break;
                 case "m": setMuted(m => !m); break;
