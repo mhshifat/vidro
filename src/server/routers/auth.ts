@@ -26,7 +26,18 @@ export const authRouter = router({
             })
         )
         .mutation(async ({ input }) => {
-            const { token, user } = await authService.register(input);
+            const result = await authService.register(input);
+            return result;
+        }),
+
+    verifyEmail: publicProcedure
+        .input(
+            z.object({
+                token: z.string(),
+            })
+        )
+        .mutation(async ({ input }) => {
+            const { token, user } = await authService.verifyEmail(input.token);
             (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
             return sanitizeUser(user);
         }),

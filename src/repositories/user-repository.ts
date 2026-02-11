@@ -6,6 +6,12 @@ export class UserRepository {
         return prisma.user.findUnique({ where: { email } });
     }
 
+    async findByVerificationToken(token: string): Promise<User | null> {
+        return prisma.user.findFirst({
+            where: { emailVerificationToken: token },
+        });
+    }
+
     async create(data: Omit<User, "id" | "createdAt" | "updatedAt">): Promise<User> {
         if (!data.password) {
             throw new Error("Password is required for user creation");
@@ -15,6 +21,20 @@ export class UserRepository {
                 email: data.email,
                 password: data.password,
                 name: data.name,
+                emailVerified: data.emailVerified ?? false,
+                emailVerificationToken: data.emailVerificationToken,
+                emailVerificationExpiry: data.emailVerificationExpiry,
+            },
+        });
+    }
+
+    async update(id: string, data: Partial<User>): Promise<User> {
+        return prisma.user.update({
+            where: { id },
+            data: {
+                emailVerified: data.emailVerified,
+                emailVerificationToken: data.emailVerificationToken,
+                emailVerificationExpiry: data.emailVerificationExpiry,
             },
         });
     }

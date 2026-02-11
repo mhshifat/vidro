@@ -8,12 +8,17 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id    String   @id @default(cuid())
   email     String   @unique
   password  String
   name      String?
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Email verification
+  emailVerified          Boolean   @default(false) @map("email_verified")
+  emailVerificationToken String?   @map("email_verification_token")
+  emailVerificationExpiry DateTime? @map("email_verification_expiry")
 
   // YouTube/Storage Tokens
   youtubeAccessToken  String?  @map("youtube_access_token")

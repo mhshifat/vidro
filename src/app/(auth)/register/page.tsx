@@ -128,11 +128,15 @@ export default function RegisterPage() {
     const router = useRouter();
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [emailSent, setEmailSent] = useState(false);
+    const [registeredEmail, setRegisteredEmail] = useState("");
 
     const registerMutation = trpc.auth.register.useMutation({
-        onSuccess: () => {
-            router.push("/dashboard");
-            router.refresh();
+        onSuccess: (data) => {
+            setEmailSent(true);
+            // Extract email from form
+            const email = form.getValues("email");
+            setRegisteredEmail(email);
         },
         onError: (e) => setError(e.message),
     });
@@ -145,6 +149,71 @@ export default function RegisterPage() {
     function onSubmit(values: RegisterValues) {
         setError("");
         registerMutation.mutate(values);
+    }
+
+    if (emailSent) {
+        return (
+            <main className="flex min-h-svh items-center justify-center px-4 py-12 sm:px-6">
+                <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-6 duration-700">
+                    <div className="rounded-3xl border border-border/50 bg-card/70 p-8 shadow-xl shadow-black/3 backdrop-blur-md sm:p-10 text-center space-y-6">
+                        {/* Icon */}
+                        <div className="flex justify-center">
+                            <div className="flex size-16 items-center justify-center rounded-full bg-emerald-500/10">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-8 text-emerald-500">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        {/* Heading */}
+                        <div className="space-y-2">
+                            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Check your email</h1>
+                            <p className="text-sm text-muted-foreground">
+                                We sent a verification link to{" "}
+                                <span className="font-semibold text-foreground">{registeredEmail}</span>
+                            </p>
+                        </div>
+
+                        {/* Steps */}
+                        <div className="space-y-3 text-left bg-background/30 rounded-xl p-4">
+                            <div className="flex gap-3">
+                                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                    1
+                                </div>
+                                <p className="text-sm text-muted-foreground pt-0.5">Open the email from Vidro</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                    2
+                                </div>
+                                <p className="text-sm text-muted-foreground pt-0.5">Click the verification link</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                                    3
+                                </div>
+                                <p className="text-sm text-muted-foreground pt-0.5">You'll be logged in automatically</p>
+                            </div>
+                        </div>
+
+                        {/* Info */}
+                        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                            <p className="text-xs text-amber-700 dark:text-amber-400">
+                                <strong>Note:</strong> The link expires in 24 hours. If you don't receive it, check your spam folder.
+                            </p>
+                        </div>
+
+                        {/* Action */}
+                        <button
+                            onClick={() => setEmailSent(false)}
+                            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                            Back to register
+                        </button>
+                    </div>
+                </div>
+            </main>
+        );
     }
 
     return (
