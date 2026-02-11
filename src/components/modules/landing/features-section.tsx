@@ -37,15 +37,20 @@ export function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="mx-auto max-w-2xl text-center mb-16">
-          <Badge variant="outline" className="mb-4 rounded-full px-3 py-1 text-xs">Features</Badge>
+          <Badge variant="outline" className="mb-4 rounded-full px-3 py-1 text-xs">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mr-1 size-3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+            </svg>
+            Capture &amp; Record
+          </Badge>
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl">
-            Everything you need to
+            Every capture mode
             <span className="block bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-              squash bugs faster
+              you could ever need
             </span>
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            A complete toolkit for capturing, annotating, and sharing bug reports — built right into your browser.
+            Screenshots, screen recordings, webcam overlays, and automatic browser context — all from a lightweight Chrome extension.
           </p>
         </div>
 
@@ -56,53 +61,53 @@ export function FeaturesSection() {
           <FeatureCard
             className="sm:col-span-2 lg:col-span-2 lg:row-span-2"
             icon={<CameraIcon />}
-            title="Instant Screen Capture"
-            description="Capture visible viewport, full page, custom area, or responsive screenshots in a single click. Everything happens right in your browser — no desktop app needed."
+            title="4 Screenshot Modes"
+            description="Capture the visible viewport, stitch the full page, drag a custom area, or test responsive layouts across iPhone, iPad, Galaxy, and Pixel emulations — all from one extension popup."
             visual={<ScreenCaptureVisual />}
           />
 
-          {/* Annotation */}
+          {/* Screenshot Annotation */}
           <FeatureCard
             icon={<PenIcon />}
-            title="Rich Annotations"
-            description="Draw, type, highlight, and annotate directly on your screenshots with shapes, arrows, text, and a freehand brush."
+            title="Screenshot Annotations"
+            description="Full annotation editor for screenshots: arrows, rectangles, circles, text, blur, freehand drawing with undo/redo, color/stroke/opacity controls."
           />
 
-          {/* Console logs */}
+          {/* Console & Network logs */}
           <FeatureCard
             icon={<ConsoleIcon />}
-            title="Console & Network Logs"
-            description="Automatically captures browser console errors, warnings, and network requests alongside your recording for full context."
+            title="Auto Console & Network Logs"
+            description="Intercepts console.log/error/warn and all HTTP requests automatically during recording. Zero setup — full context every time."
           />
 
           {/* Screen recording — large */}
           <FeatureCard
             className="sm:col-span-2 lg:col-span-2"
             icon={<VideoIcon />}
-            title="Screen Recording with Audio"
-            description="Record your screen, tab, or window with optional microphone and webcam overlay. Recordings are stored efficiently and ready to share instantly."
+            title="Screen Recording with Webcam & Mic"
+            description="Record your screen, tab, or window with optional microphone audio and a draggable webcam bubble. Includes a floating overlay showing elapsed time, file size, and auto-stop at 100MB."
             visual={<RecordingVisual />}
           />
 
           {/* One-click sharing */}
           <FeatureCard
             icon={<ShareIcon />}
-            title="One-Click Sharing"
-            description="Generate a shareable link instantly. Your team gets the screenshot or recording plus all captured browser context in one place."
+            title="Instant Shareable Links"
+            description="Generate a link with one click. Deep-link to specific timestamps with ?t= parameters so your team jumps right to the bug."
           />
 
           {/* Responsive testing */}
           <FeatureCard
             icon={<DeviceIcon />}
-            title="Responsive Testing"
-            description="Test how pages look across iPhone, iPad, Galaxy, and Pixel devices with one-click responsive screenshots."
+            title="Responsive Device Screenshots"
+            description="Emulate iPhone, iPad, Galaxy, and Pixel viewports using Chrome DevTools Protocol, then capture at that resolution."
           />
 
           {/* Extension powered */}
           <FeatureCard
             icon={<ExtensionIcon />}
-            title="Browser Extension"
-            description="Lightweight Chrome extension that sits in your toolbar. Capture bugs from any website without switching contexts."
+            title="Chrome Extension"
+            description="Lightweight extension that sits in your toolbar. Capture bugs from any website with pause/resume, recording timer, and usage tracking."
           />
 
         </div>
@@ -175,6 +180,22 @@ function RecordingVisual() {
 
         {/* Size badge */}
         <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">4.2 MB</span>
+      </div>
+
+      {/* Webcam + Mic indicators */}
+      <div className="mt-3 flex items-center gap-3">
+        <div className="flex items-center gap-1.5 rounded-full bg-green-500/5 border border-green-500/20 px-2 py-0.5">
+          <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+          <span className="text-[10px] text-green-600 dark:text-green-400">Webcam</span>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full bg-blue-500/5 border border-blue-500/20 px-2 py-0.5">
+          <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+          <span className="text-[10px] text-blue-600 dark:text-blue-400">Mic</span>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-full bg-amber-500/5 border border-amber-500/20 px-2 py-0.5">
+          <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          <span className="text-[10px] text-amber-600 dark:text-amber-400">Logs</span>
+        </div>
       </div>
     </div>
   );
@@ -258,7 +279,7 @@ function FullPageIcon() {
 function AreaIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-5 text-red-500">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199m0 0a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664A4.33 4.33 0 0010.607 12m3.736 0l7.794 4.5-.802.215a4.5 4.5 0 01-2.48-.043l-5.326-1.629a4.324 4.324 0 01-2.068-1.379M14.343 12l-2.882 1.664" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
     </svg>
   );
 }

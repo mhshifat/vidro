@@ -134,7 +134,6 @@ export class AIInsightsService {
             try {
                 return JSON.parse(fixAttempt) as T;
             } catch {
-                console.warn("[AI Insights] JSON parse failed, raw text:", text.slice(0, 300));
                 throw new Error("AI returned invalid JSON. Please try again.");
             }
         }

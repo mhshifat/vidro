@@ -17,7 +17,7 @@ export function HeroSection() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
               </span>
-              Now with AI-powered annotations
+              77 features &middot; 18 AI models &middot; Open source
             </Badge>
           </div>
 
@@ -41,8 +41,8 @@ export function HeroSection() {
 
           {/* Sub-heading */}
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200 sm:text-xl">
-            Capture screenshots, record your screen with webcam &amp; mic, annotate with precision
-            — and share instant bug reports with your team. A faster, free replacement for Jam.dev and Loom.
+            Capture screenshots &amp; screen recordings, annotate with precision,
+            get 18 AI-powered insights per report — and share instant bug reports your team will actually use.
           </p>
 
           {/* CTA buttons */}
