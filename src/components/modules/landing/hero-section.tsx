@@ -17,7 +17,7 @@ export function HeroSection() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
               </span>
-              77 features &middot; 18 AI models &middot; Open source
+              77 features &middot; 18 AI models
             </Badge>
           </div>
 
@@ -33,7 +33,7 @@ export function HeroSection() {
 
           {/* Heading */}
           <h1 className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-7xl">
-            <span className="block text-foreground">The open-source</span>
+            <span className="block text-foreground"></span>
             <span className="mt-1 block bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 bg-clip-text text-transparent">
               Jam &amp; Loom alternative
             </span>

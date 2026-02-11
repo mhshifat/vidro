@@ -29,7 +29,6 @@ export default function Home() {
       <HowItWorksSection />
       <StatsSection />
       <SectionDivider />
-      <ArchitectureSection />
       <SectionDivider />
       <CtaSection />
       <Footer />
