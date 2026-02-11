@@ -57,7 +57,21 @@ export const metadata: Metadata = {
     images: ["/og-image.png"],
   },
   icons: {
-    icon: "/icon.svg",
+    icon: [
+      { rel: "icon", url: "/icons/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { rel: "icon", url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { rel: "icon", url: "/favicon.ico", sizes: "any", type: "image/x-icon" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-180x180.png", sizes: "180x180", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-120x120.png", sizes: "120x120", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-152x152.png", sizes: "152x152", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-144x144.png", sizes: "144x144", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-76x76.png", sizes: "76x76", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-72x72.png", sizes: "72x72", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-60x60.png", sizes: "60x60", type: "image/png" },
+      { rel: "apple-touch-icon", url: "/icons/apple-icon-57x57.png", sizes: "57x57", type: "image/png" },
+      { rel: "icon", url: "/icon.svg", sizes: "any", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg",
   },
   robots: {
     index: true,
