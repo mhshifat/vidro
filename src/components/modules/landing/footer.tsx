@@ -73,13 +73,28 @@ export function Footer() {
             <div key={category}>
               <h4 className="mb-4 text-sm font-semibold">{category}</h4>
               <ul className="space-y-2.5">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
+                {links.map((link) => {
+                  const isComingSoon = link.href === "#";
+                  return (
+                    <li key={link.label} className="flex flex-col gap-1">
+                      <a 
+                        href={link.href} 
+                        className={`text-sm transition-colors w-fit ${
+                          isComingSoon 
+                            ? "text-muted-foreground/50 cursor-default" 
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {link.label}
+                      </a>
+                      {isComingSoon && (
+                        <span className="inline-flex w-fit items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-600 dark:bg-amber-500/20 dark:text-amber-400">
+                          Coming Soon
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
