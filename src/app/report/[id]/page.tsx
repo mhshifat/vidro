@@ -248,9 +248,18 @@ function consoleTypeIcon(type: string) {
 /* ──────────────────────────────────────────────────────────────── */
 /*  Video Player                                                   */
 /* ──────────────────────────────────────────────────────────────── */
+/** Marker for an annotation on the progress bar */
+interface AnnotationProgressMarker {
+    id: string;
+    timestamp: number;
+    type: string;
+    color: string;
+}
+
 function VideoPlayer({
     src,
     commentMarkers = [],
+    annotationMarkers = [],
     errorTimestamps = [],
     highlightRegion,
     chapters = [],
@@ -261,6 +270,7 @@ function VideoPlayer({
 }: {
     src: string;
     commentMarkers?: CommentMarker[];
+    annotationMarkers?: AnnotationProgressMarker[];
     errorTimestamps?: number[];
     highlightRegion?: { start: number; end: number } | null;
     chapters?: VideoChapter[];
@@ -285,6 +295,7 @@ function VideoPlayer({
     const [buffered, setBuffered] = useState(0);
     const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
     const [hoveredMarker, setHoveredMarker] = useState<CommentMarker | null>(null);
+    const [hoveredAnnotationMarker, setHoveredAnnotationMarker] = useState<AnnotationProgressMarker | null>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
     const [hoverX, setHoverX] = useState(0);
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -577,48 +588,112 @@ function VideoPlayer({
                         <div className="absolute inset-y-0 left-0 bg-white rounded-full transition-[width] duration-100 overflow-hidden" style={{ width: `${progress}%` }} />
                         <div className="absolute top-1/2 -translate-y-1/2 size-3.5 rounded-full bg-white shadow-lg shadow-black/40 opacity-0 group-hover/progress:opacity-100 transition-opacity duration-200 -ml-1.5" style={{ left: `${progress}%` }} />
 
-                        {/* Comment markers */}
-                        {duration > 0 && commentMarkers.map((marker) => {
-                            const pct = (marker.timestamp / duration) * 100;
-                            if (pct < 0 || pct > 100) return null;
-                            const isHovered = hoveredMarker?.id === marker.id;
-                            return (
-                                <div
-                                    key={marker.id}
-                                    className="absolute z-10"
-                                    style={{ left: `${pct}%`, top: "50%", transform: "translate(-50%, -50%)" }}
-                                    onMouseEnter={(e) => { e.stopPropagation(); setHoveredMarker(marker); }}
-                                    onMouseLeave={(e) => { e.stopPropagation(); setHoveredMarker(null); }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const vid = videoRef.current;
-                                        if (vid) vid.currentTime = marker.timestamp;
-                                    }}
-                                >
-                                    {/* Marker dot */}
-                                    <div className="size-3 rounded-full bg-amber-400 border-2 border-white shadow-md cursor-pointer hover:scale-125 transition-transform" />
+                        {/* Combined comment + annotation markers */}
+                        {duration > 0 && (() => {
+                            // Group markers by timestamp (within 0.3s tolerance)
+                            const TOLERANCE = 0.3;
+                            type Slot = { pct: number; ts: number; comments: CommentMarker[]; annotations: AnnotationProgressMarker[] };
+                            const slots: Slot[] = [];
 
-                                    {/* Hover tooltip */}
-                                    {isHovered && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150 z-30">
-                                            <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-xl border border-white/10 min-w-48 max-w-72">
-                                                <div className="flex items-center gap-1.5 mb-1">
-                                                    <span className="text-[10px] font-mono text-amber-400 font-bold">{fmtCommentTs(marker.timestamp)}</span>
-                                                    <span className="text-[10px] text-white/50">•</span>
-                                                    <span className="text-[10px] text-white/70 truncate">{marker.userName}</span>
-                                                </div>
-                                                <p className="text-xs text-white/90 leading-relaxed line-clamp-3">{marker.body}</p>
-                                            </div>
-                                            {/* Arrow */}
-                                            <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-gray-900/95 border-r border-b border-white/10 rotate-45" />
+                            for (const cm of commentMarkers) {
+                                const pct = (cm.timestamp / duration) * 100;
+                                if (pct < 0 || pct > 100) continue;
+                                const existing = slots.find(s => Math.abs(s.ts - cm.timestamp) < TOLERANCE);
+                                if (existing) { existing.comments.push(cm); }
+                                else { slots.push({ pct, ts: cm.timestamp, comments: [cm], annotations: [] }); }
+                            }
+
+                            for (const am of annotationMarkers) {
+                                const pct = (am.timestamp / duration) * 100;
+                                if (pct < 0 || pct > 100) continue;
+                                const existing = slots.find(s => Math.abs(s.ts - am.timestamp) < TOLERANCE);
+                                if (existing) { existing.annotations.push(am); }
+                                else { slots.push({ pct, ts: am.timestamp, comments: [], annotations: [am] }); }
+                            }
+
+                            return slots.map((slot) => {
+                                const hasComments = slot.comments.length > 0;
+                                const hasAnnotations = slot.annotations.length > 0;
+                                const hasBoth = hasComments && hasAnnotations;
+                                const firstComment = slot.comments[0];
+                                const firstAnnotation = slot.annotations[0];
+                                const isCommentHovered = firstComment && hoveredMarker?.id === firstComment.id;
+                                const isAnnotationHovered = firstAnnotation && hoveredAnnotationMarker?.id === firstAnnotation.id;
+                                const isHovered = isCommentHovered || isAnnotationHovered;
+
+                                return (
+                                    <div
+                                        key={`slot-${slot.ts}`}
+                                        className="absolute z-10"
+                                        style={{ left: `${slot.pct}%`, top: "50%", transform: "translate(-50%, -50%)" }}
+                                        onMouseEnter={(e) => {
+                                            e.stopPropagation();
+                                            if (firstComment) setHoveredMarker(firstComment);
+                                            if (firstAnnotation) setHoveredAnnotationMarker(firstAnnotation);
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.stopPropagation();
+                                            setHoveredMarker(null);
+                                            setHoveredAnnotationMarker(null);
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const vid = videoRef.current;
+                                            if (vid) vid.currentTime = slot.ts;
+                                        }}
+                                    >
+                                        {/* Marker dots — stacked when both types present */}
+                                        <div className={`flex ${hasBoth ? 'flex-col gap-0.5 -translate-y-0.5' : ''}`}>
+                                            {hasAnnotations && (
+                                                <div
+                                                    className="size-3 rounded-full border-2 border-white shadow-md cursor-pointer hover:scale-125 transition-transform"
+                                                    style={{ backgroundColor: firstAnnotation.color || '#3b82f6' }}
+                                                />
+                                            )}
+                                            {hasComments && (
+                                                <div className="size-3 rounded-full bg-amber-400 border-2 border-white shadow-md cursor-pointer hover:scale-125 transition-transform" />
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            );
-                        })}
 
-                        {/* Thumbnail preview on hover (hidden when a comment marker is hovered) */}
-                        {hoverTime != null && !hoveredMarker && (
+                                        {/* Hover tooltip */}
+                                        {isHovered && (
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 pointer-events-none animate-in fade-in zoom-in-95 duration-150 z-30">
+                                                <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-xl border border-white/10 min-w-48 max-w-72 space-y-1.5">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-[10px] font-mono text-white/80 font-bold">{fmtCommentTs(slot.ts)}</span>
+                                                    </div>
+                                                    {/* Annotation entries */}
+                                                    {slot.annotations.length > 0 && (
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: firstAnnotation?.color || '#3b82f6' }} />
+                                                            <span className="text-[10px] text-white/70">
+                                                                {slot.annotations.length} annotation{slot.annotations.length > 1 ? 's' : ''}
+                                                                <span className="text-white/40 ml-1">({slot.annotations.map(a => a.type).filter((v, i, arr) => arr.indexOf(v) === i).join(', ')})</span>
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {/* Comment entries */}
+                                                    {slot.comments.map(cm => (
+                                                        <div key={cm.id}>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="size-2 rounded-full bg-amber-400 shrink-0" />
+                                                                <span className="text-[10px] text-white/70 truncate">{cm.userName}</span>
+                                                            </div>
+                                                            <p className="text-xs text-white/90 leading-relaxed line-clamp-2 pl-3.5">{cm.body}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {/* Arrow */}
+                                                <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-gray-900/95 border-r border-b border-white/10 rotate-45" />
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            });
+                        })()}
+
+                        {/* Thumbnail preview on hover (hidden when a marker is hovered) */}
+                        {hoverTime != null && !hoveredMarker && !hoveredAnnotationMarker && (
                             <div className="absolute z-20 pointer-events-none" style={{ left: `${hoverX}px`, bottom: "100%", transform: "translateX(-50%)" }}>
                                 <div className="mb-2 flex flex-col items-center">
                                     {thumbnailUrl && (
@@ -1442,6 +1517,7 @@ export default function ReportPage() {
                                     <VideoPlayer
                                         src={report.videoUrl}
                                         commentMarkers={commentMarkers}
+                                        annotationMarkers={videoAnnotations.map(a => ({ id: a.id, timestamp: a.timestamp, type: a.type, color: a.color }))}
                                         errorTimestamps={errorTimestamps}
                                         highlightRegion={highlightRegion}
                                         chapters={chapters}
