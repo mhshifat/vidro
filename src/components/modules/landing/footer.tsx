@@ -20,8 +20,8 @@ const FOOTER_LINKS = {
     { label: "Support", href: "#" },
   ],
   Legal: [
-    { label: "Privacy", href: "#" },
-    { label: "Terms", href: "#" },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
     { label: "Security", href: "#" },
   ],
 } as const;
@@ -91,9 +91,9 @@ export function Footer() {
             &copy; {currentYear} Vidro. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <a href="#" className="transition-colors hover:text-foreground">Privacy Policy</a>
+            <a href="/privacy" className="transition-colors hover:text-foreground">Privacy Policy</a>
             <span className="text-border">·</span>
-            <a href="#" className="transition-colors hover:text-foreground">Terms of Service</a>
+            <a href="/terms" className="transition-colors hover:text-foreground">Terms of Service</a>
           </div>
         </div>
       </div>
