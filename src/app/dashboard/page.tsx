@@ -273,12 +273,12 @@ export default function DashboardPage() {
                 {/* ── Header ─────────────────────────────────────── */}
                 <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-lg supports-backdrop-filter:bg-background/60">
                     <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-                        <div className="flex items-center gap-3">
-                            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                        <Link href="/" className="flex items-center gap-3 group" aria-label="Go to homepage">
+                            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-transform group-hover:scale-105">
                                 {Icons.bug}
                             </div>
                             <h1 className="text-base font-bold tracking-tight">Vidro</h1>
-                        </div>
+                        </Link>
                         <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
                             {Icons.logout}
                             Sign Out
