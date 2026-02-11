@@ -17,6 +17,15 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = {
@@ -118,6 +127,16 @@ const Icons = {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
     ),
+    transcript: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+    ),
+    sparkles: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+        </svg>
+    ),
     download: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
@@ -153,6 +172,7 @@ interface Report {
     type: 'VIDEO' | 'SCREENSHOT';
     videoUrl: string | null;
     imageUrl: string | null;
+    transcript: string | null;
     consoleLogs: ConsoleLogEntry[] | null;
     networkLogs: NetworkLogEntry[] | null;
     userId: string;
@@ -457,6 +477,8 @@ export default function ReportPage() {
     const [editDescription, setEditDescription] = useState("");
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [generating, setGenerating] = useState(false);
+    const [generateError, setGenerateError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchReport() {
@@ -528,6 +550,58 @@ export default function ReportPage() {
             setSaveError(err instanceof Error ? err.message : "Failed to update report.");
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleGenerate = async () => {
+        if (!report || generating) return;
+        const mediaUrl = report.videoUrl || report.imageUrl;
+        if (!mediaUrl) return;
+
+        setGenerating(true);
+        setGenerateError(null);
+
+        try {
+            // 1. Call AI analysis
+            const aiRes = await fetch('/api/ai/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    videoUrl: mediaUrl,
+                    mimeType: report.type === 'SCREENSHOT' ? 'image/png' : 'video/webm',
+                }),
+            });
+
+            if (!aiRes.ok) {
+                const err = await aiRes.json().catch(() => ({}));
+                throw new Error(err.detail || err.error || 'AI analysis failed.');
+            }
+
+            const ai = await aiRes.json();
+
+            // 2. Save AI results to the report
+            const patchRes = await fetch(`/api/report?id=${report.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    title: ai.title || report.title,
+                    description: ai.description || report.description,
+                    transcript: ai.transcript,
+                }),
+            });
+
+            if (!patchRes.ok) {
+                const err = await patchRes.json().catch(() => ({}));
+                throw new Error(err.error || 'Failed to save AI-generated content.');
+            }
+
+            const updated = await patchRes.json();
+            setReport(updated);
+        } catch (err) {
+            console.error('AI generation failed:', err);
+            setGenerateError(err instanceof Error ? err.message : 'AI generation failed.');
+        } finally {
+            setGenerating(false);
         }
     };
 
@@ -645,15 +719,32 @@ export default function ReportPage() {
                                 })}
                             </Badge>
                             {isOwner && !editing && (
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleStartEditing}
-                                    className="gap-1.5 transition-all"
-                                >
-                                    {Icons.edit}
-                                    Edit
-                                </Button>
+                                <>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleGenerate}
+                                                disabled={generating}
+                                                className="gap-1.5 transition-all"
+                                            >
+                                                {generating ? Icons.spinner : Icons.sparkles}
+                                                {generating ? 'Generating...' : 'Generate'}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Use AI to generate title, description & transcript</TooltipContent>
+                                    </Tooltip>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleStartEditing}
+                                        className="gap-1.5 transition-all"
+                                    >
+                                        {Icons.edit}
+                                        Edit
+                                    </Button>
+                                </>
                             )}
                             {editing && (
                                 <>
@@ -843,6 +934,12 @@ export default function ReportPage() {
                                                 Network
                                                 <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{networkLogs.length}</Badge>
                                             </TabsTrigger>
+                                            {report.transcript && (
+                                                <TabsTrigger value="transcript" className="text-xs gap-1.5 px-3">
+                                                    {Icons.transcript}
+                                                    Transcript
+                                                </TabsTrigger>
+                                            )}
                                         </TabsList>
                                     </div>
                                 </div>
@@ -900,11 +997,42 @@ export default function ReportPage() {
                                         </div>
                                     </ScrollArea>
                                 </TabsContent>
+
+                                {report.transcript && (
+                                    <TabsContent value="transcript" className="m-0">
+                                        <ScrollArea className="h-80">
+                                            <div className="px-5 py-4 space-y-1">
+                                                {report.transcript.split('\n').map((line, i) => (
+                                                    <p
+                                                        key={i}
+                                                        className="text-sm text-foreground/80 leading-relaxed font-mono animate-in fade-in slide-in-from-left-1 duration-200"
+                                                        style={{ animationDelay: `${Math.min(i * 30, 500)}ms` }}
+                                                    >
+                                                        {line || '\u00A0'}
+                                                    </p>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    </TabsContent>
+                                )}
                             </Tabs>
                         </Card>
                     </div>
                 </main>
             </div>
+
+            {/* ── Error Alert Dialog ──────────────────────────── */}
+            <AlertDialog open={!!generateError} onOpenChange={(open) => { if (!open) setGenerateError(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>AI Generation Failed</AlertDialogTitle>
+                        <AlertDialogDescription>{generateError}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setGenerateError(null)}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </TooltipProvider>
     );
 }

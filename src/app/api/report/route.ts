@@ -20,6 +20,7 @@ const createReportSchema = z.object({
     imageUrl: z.string().optional(),
     storageKey: z.string().optional(),
     fileSize: z.number().optional(),
+    transcript: z.string().optional(),
     consoleLogs: z.any().optional(),
     networkLogs: z.any().optional(),
 }).refine(
@@ -30,6 +31,7 @@ const createReportSchema = z.object({
 const updateReportSchema = z.object({
     title: z.string().min(1, "Title cannot be empty").max(200).optional(),
     description: z.string().max(5000).optional(),
+    transcript: z.string().optional(),
 });
 
 export async function GET(req: Request) {
@@ -90,6 +92,7 @@ export async function POST(req: Request) {
                 imageUrl: data.imageUrl ?? null,
                 storageKey: data.storageKey,
                 fileSize: data.fileSize ?? 0,
+                transcript: data.transcript ?? null,
                 consoleLogs: data.consoleLogs ?? [],
                 networkLogs: data.networkLogs ?? [],
                 userId: payload.userId as string,
@@ -150,6 +153,7 @@ export async function PATCH(req: Request) {
         const updateData: Record<string, string> = {};
         if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
         if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
+        if (parsed.data.transcript !== undefined) updateData.transcript = parsed.data.transcript;
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: "No fields to update." }, { status: 400 });

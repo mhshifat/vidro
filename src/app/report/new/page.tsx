@@ -781,17 +781,47 @@ function NewReportPageInner() {
 
             const { url: uploadedUrl, key: storageKey, fileSize } = await uploadRes.json();
 
-            // 3. Create the report
+            // 3. Run AI analysis for videos (non-blocking — falls back gracefully)
+            let aiTitle = title;
+            let aiDescription = description;
+            let aiTranscript: string | undefined;
+
+            if (!isImage) {
+                try {
+                    console.log('[Vidro] Starting AI analysis for video:', uploadedUrl);
+                    const aiRes = await fetch('/api/ai/analyze', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ videoUrl: uploadedUrl, mimeType: 'video/webm' }),
+                    });
+                    if (aiRes.ok) {
+                        const ai = await aiRes.json();
+                        console.log('[Vidro] AI analysis result:', ai);
+                        // Only use AI values if the user hasn't customized them
+                        if (!title || title === 'Unlabeled Recording') aiTitle = ai.title;
+                        if (!description) aiDescription = ai.description;
+                        aiTranscript = ai.transcript;
+                    } else {
+                        const errBody = await aiRes.json().catch(() => ({}));
+                        console.warn('[Vidro] AI analysis returned non-OK status:', aiRes.status, errBody);
+                    }
+                } catch (aiErr) {
+                    console.warn('[Vidro] AI analysis failed, saving without AI content:', aiErr);
+                }
+            }
+
+            // 4. Create the report
             const reportRes = await fetch('/api/report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: title || (isImage ? 'Screenshot' : 'Untitled Bug Report'),
-                    description,
+                    title: aiTitle || (isImage ? 'Screenshot' : 'Untitled Bug Report'),
+                    description: aiDescription,
                     type: isImage ? 'SCREENSHOT' : 'VIDEO',
                     ...(isImage ? { imageUrl: uploadedUrl } : { videoUrl: uploadedUrl }),
                     storageKey,
                     fileSize,
+                    transcript: aiTranscript,
                     consoleLogs: source.consoleLogs,
                     networkLogs: source.networkLogs,
                 }),
@@ -805,7 +835,7 @@ function NewReportPageInner() {
             }
             const report = await reportRes.json();
 
-            // 4. Clean up
+            // 5. Clean up
             if (screenshotData) {
                 setScreenshotData(null);
                 saveScreenshotToLocal(null);
@@ -813,7 +843,7 @@ function NewReportPageInner() {
                 handleDiscardRecording(recording!.id);
             }
 
-            // 5. Navigate to saved report
+            // 6. Navigate to saved report
             router.push(`/report/${report.id}`);
         } catch (err) {
             console.error('Save failed:', err);
