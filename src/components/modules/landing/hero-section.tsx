@@ -34,7 +34,7 @@ export function HeroSection() {
           {/* Heading */}
           <h1 className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-7xl">
             <span className="block text-foreground"></span>
-            <span className="mt-1 block bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 bg-clip-text text-transparent">
+            <span className="mt-1 block bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 bg-clip-text text-transparent" aria-label="Jam and Loom alternative">
               Jam &amp; Loom alternative
             </span>
           </h1>
@@ -81,7 +81,7 @@ export function HeroSection() {
         </div>
 
         {/* Hero visual — browser mockup */}
-        <div className="relative mt-20 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500">
+          <div className="relative mt-20 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-500" aria-hidden="true">
           <div className="mx-auto max-w-5xl">
             {/* Glow behind browser */}
             <div className="absolute inset-0 -m-4 rounded-3xl bg-gradient-to-b from-red-500/10 via-transparent to-transparent blur-2xl" />

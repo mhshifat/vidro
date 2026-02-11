@@ -465,6 +465,7 @@ function VideoPlayer({
             <video
                 ref={videoRef}
                 src={src}
+                aria-label="Bug report video"
                 className="w-full h-full object-contain bg-black"
                 onPlay={() => setPlaying(true)}
                 onPause={() => setPlaying(false)}
@@ -539,6 +540,12 @@ function VideoPlayer({
                 <div className="relative px-4 pb-3 pt-10 space-y-2">
                     {/* Progress bar */}
                     <div
+                        role="slider"
+                        aria-label="Video progress"
+                        aria-valuenow={Math.round(progress)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        tabIndex={0}
                         className="group/progress relative h-1.5 hover:h-2.5 transition-all duration-200 cursor-pointer rounded-full bg-white/20"
                         onClick={(e) => {
                             e.stopPropagation();
@@ -738,17 +745,18 @@ function VideoPlayer({
                     {/* Bottom controls */}
                     <div className="flex items-center justify-between gap-2 text-white">
                         <div className="flex items-center gap-1">
-                            <button onClick={(e) => { e.stopPropagation(); skip(-10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Rewind 10s">{Icons.skipBack}</button>
-                            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="flex size-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm transition-all hover:bg-white/20 hover:scale-105 active:scale-95">{playing ? Icons.pause : Icons.play}</button>
-                            <button onClick={(e) => { e.stopPropagation(); skip(10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Forward 10s">{Icons.skipForward}</button>
+                            <button onClick={(e) => { e.stopPropagation(); skip(-10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Rewind 10s" aria-label="Skip back 10 seconds">{Icons.skipBack}</button>
+                            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="flex size-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm transition-all hover:bg-white/20 hover:scale-105 active:scale-95" aria-label={playing ? "Pause" : "Play"}>{playing ? Icons.pause : Icons.play}</button>
+                            <button onClick={(e) => { e.stopPropagation(); skip(10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Forward 10s" aria-label="Skip forward 10 seconds">{Icons.skipForward}</button>
 
                             <div className="group/vol flex items-center gap-1 ml-1">
-                                <button onClick={(e) => { e.stopPropagation(); setMuted(!muted); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10">{muted || volume === 0 ? Icons.volumeMuted : Icons.volumeHigh}</button>
+                                <button onClick={(e) => { e.stopPropagation(); setMuted(!muted); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" aria-label={muted ? "Unmute" : "Mute"}>{muted || volume === 0 ? Icons.volumeMuted : Icons.volumeHigh}</button>
                                 <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300">
                                     <Slider
                                         value={[muted ? 0 : volume * 100]}
                                         max={100}
                                         step={1}
+                                        aria-label="Volume"
                                         onValueChange={([val]) => { setVolume(val / 100); setMuted(val === 0); }}
                                         className="w-20 **:data-[slot=slider-track]:h-1 **:data-[slot=slider-track]:bg-white/20 **:data-[slot=slider-range]:bg-white **:data-[slot=slider-thumb]:size-3 **:data-[slot=slider-thumb]:bg-white **:data-[slot=slider-thumb]:border-0"
                                     />
@@ -761,9 +769,9 @@ function VideoPlayer({
                         </div>
 
                         <div className="flex items-center gap-0.5">
-                            <button onClick={(e) => { e.stopPropagation(); cycleSpeed(); }} className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-bold tabular-nums transition-colors hover:bg-white/10" title="Playback speed">{speed}x</button>
-                            <button onClick={(e) => { e.stopPropagation(); togglePip(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title="Picture-in-Picture">{Icons.pip}</button>
-                            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}>{isFullscreen ? Icons.minimize : Icons.maximize}</button>
+                            <button onClick={(e) => { e.stopPropagation(); cycleSpeed(); }} className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-bold tabular-nums transition-colors hover:bg-white/10" title="Playback speed" aria-label={`Playback speed ${speed}x`}>{speed}x</button>
+                            <button onClick={(e) => { e.stopPropagation(); togglePip(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title="Picture-in-Picture" aria-label="Picture in picture">{Icons.pip}</button>
+                            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} aria-label="Toggle fullscreen">{isFullscreen ? Icons.minimize : Icons.maximize}</button>
                         </div>
                     </div>
                 </div>

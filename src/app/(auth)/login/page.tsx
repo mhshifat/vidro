@@ -146,7 +146,7 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="flex min-h-svh items-center justify-center px-4 py-12 sm:px-6">
+        <main className="flex min-h-svh items-center justify-center px-4 py-12 sm:px-6">
             <div className="w-full max-w-5xl animate-in fade-in slide-in-from-bottom-6 duration-700">
                 {/* ── Bento Grid ────────────────────────────────── */}
                 <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
@@ -222,9 +222,9 @@ export default function LoginPage() {
 
                             {/* Error */}
                             {error && (
-                                <div className="mb-6 flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div role="alert" className="mb-6 flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4 text-destructive">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4 text-destructive" aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                         </svg>
                                     </div>
@@ -275,7 +275,7 @@ export default function LoginPage() {
                                                         />
                                                         <button
                                                             type="button"
-                                                            tabIndex={-1}
+                                                            aria-label={showPassword ? "Hide password" : "Show password"}
                                                             onClick={() => setShowPassword(!showPassword)}
                                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
                                                         >
@@ -331,6 +331,6 @@ export default function LoginPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     );
 }

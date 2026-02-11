@@ -12,11 +12,11 @@ const NAV_LINKS = [
 export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <nav aria-label="Main navigation" className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href="/" className="flex items-center gap-2.5 group" aria-label="Vidro home">
           <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-red-500 shadow-lg shadow-red-500/20 transition-transform group-hover:scale-105">
-            <svg viewBox="0 0 32 32" fill="none" className="h-5 w-5">
+            <svg viewBox="0 0 32 32" fill="none" className="h-5 w-5" aria-hidden="true">
               <circle cx="16" cy="16" r="7" fill="white" opacity="0.9" />
               <circle cx="16" cy="16" r="3.5" fill="#ef4444" />
             </svg>

@@ -308,6 +308,7 @@ export default function DashboardPage() {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         onKeyDown={(e) => { if (e.key === "Enter") handleAISearch(); }}
                                         placeholder='AI Search — try "critical login bugs" or "API errors this week"'
+                                        aria-label="Search bug reports"
                                         className="pl-9 pr-9 h-10"
                                     />
                                     {searchQuery && (
@@ -385,7 +386,7 @@ export default function DashboardPage() {
                                         {usage.storage.usedMB.toFixed(1)} / {usage.storage.limitMB.toFixed(0)} MB
                                     </p>
                                 </div>
-                                <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                                <div className="w-full h-2 rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={Math.round(usage.storage.percentUsed)} aria-valuemin={0} aria-valuemax={100} aria-label="Storage usage">
                                     <div
                                         className={`h-full rounded-full transition-all duration-500 ${
                                             usage.storage.percentUsed > 90
@@ -550,6 +551,7 @@ export default function DashboardPage() {
                                                                 }
                                                             }}
                                                             className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-all hover:bg-muted hover:text-foreground"
+                                                            aria-label={`Download ${report.type === 'SCREENSHOT' ? 'screenshot' : 'video'}`}
                                                         >
                                                             {Icons.download}
                                                         </button>
@@ -562,6 +564,7 @@ export default function DashboardPage() {
                                                             onClick={() => setConfirmDeleteId(report.id)}
                                                             disabled={deletingId === report.id}
                                                             className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-all hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                                                            aria-label="Delete report"
                                                         >
                                                             {deletingId === report.id ? (
                                                                 <svg className="size-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
