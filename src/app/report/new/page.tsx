@@ -422,7 +422,7 @@ function VideoPlayer({ src }: { src: string }) {
             >
                 {ready ? (
                     <div className="size-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl transition-transform duration-200 hover:scale-110 active:scale-95">
-                        <svg viewBox="0 0 24 24" fill="white" className="size-8 ml-1">
+                        <svg viewBox="0 0 24 24" fill="black" className="size-8 ml-1">
                             <path d="M8 5.14v14l11-7-11-7z" />
                         </svg>
                     </div>

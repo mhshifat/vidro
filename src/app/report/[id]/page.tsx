@@ -202,6 +202,7 @@ interface Report {
     translations: Record<string, { title: string; description: string }> | null;
     highlightStart: number | null;
     highlightEnd: number | null;
+    annotations: VideoAnnotation[] | null;
     userId: string;
     createdAt: string;
     updatedAt: string;
@@ -509,7 +510,7 @@ function VideoPlayer({
             <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${playing ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
                 {ready ? (
                     <div className="size-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl transition-transform duration-200 hover:scale-110 active:scale-95">
-                        <svg viewBox="0 0 24 24" fill="white" className="size-8 ml-1"><path d="M8 5.14v14l11-7-11-7z" /></svg>
+                        <svg viewBox="0 0 24 24" fill="black" className="size-8 ml-1"><path d="M8 5.14v14l11-7-11-7z" /></svg>
                     </div>
                 ) : (
                     <div className="size-20 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-2xl">
@@ -743,9 +744,74 @@ export default function ReportPage() {
     const [ocrText, setOcrText] = useState<string>("");
     const [ocrLoading, setOcrLoading] = useState(false);
     const [videoAnnotations, setVideoAnnotations] = useState<VideoAnnotation[]>([]);
+    const [annotationHistory, setAnnotationHistory] = useState<VideoAnnotation[][]>([[]]);
+    const [annotationHistoryIndex, setAnnotationHistoryIndex] = useState(0);
     const [annotationEditing, setAnnotationEditing] = useState(false);
     const [annotationTool, setAnnotationTool] = useState<VideoAnnotation["type"] | null>(null);
     const [annotationColor, setAnnotationColor] = useState("#ef4444");
+
+    const pushAnnotationState = useCallback((next: VideoAnnotation[]) => {
+        setVideoAnnotations(next);
+        setAnnotationHistory(prev => {
+            const trimmed = prev.slice(0, annotationHistoryIndex + 1);
+            return [...trimmed, next];
+        });
+        setAnnotationHistoryIndex(prev => prev + 1);
+    }, [annotationHistoryIndex]);
+
+    // Auto-save annotations to DB (debounced)
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+    const initialLoadRef = useRef(true);
+    useEffect(() => {
+        // Skip saving on initial load
+        if (initialLoadRef.current) {
+            initialLoadRef.current = false;
+            return;
+        }
+        if (!report?.id) return;
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
+            try {
+                await fetch(`/api/report?id=${report.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ annotations: videoAnnotations }),
+                });
+            } catch (err) {
+                console.error("Failed to save annotations:", err);
+            }
+        }, 800);
+        return () => clearTimeout(saveTimerRef.current);
+    }, [videoAnnotations, report?.id]);
+
+    const annotationUndo = useCallback(() => {
+        if (annotationHistoryIndex <= 0) return;
+        const newIndex = annotationHistoryIndex - 1;
+        setAnnotationHistoryIndex(newIndex);
+        setVideoAnnotations(annotationHistory[newIndex]);
+    }, [annotationHistoryIndex, annotationHistory]);
+
+    const annotationRedo = useCallback(() => {
+        if (annotationHistoryIndex >= annotationHistory.length - 1) return;
+        const newIndex = annotationHistoryIndex + 1;
+        setAnnotationHistoryIndex(newIndex);
+        setVideoAnnotations(annotationHistory[newIndex]);
+    }, [annotationHistoryIndex, annotationHistory]);
+
+    useEffect(() => {
+        if (!annotationEditing) return;
+        const handler = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                annotationUndo();
+            } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                annotationRedo();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [annotationEditing, annotationUndo, annotationRedo]);
     const seekToRef = useRef<((t: number) => void) | null>(null);
 
     const handleCommentsLoaded = useCallback((loadedComments: Comment[]) => {
@@ -957,6 +1023,12 @@ export default function ReportPage() {
                 if (!res.ok) { setNotFound(true); setLoading(false); return; }
                 const data = await res.json();
                 setReport(data);
+                // Load persisted annotations
+                if (Array.isArray(data.annotations) && data.annotations.length > 0) {
+                    setVideoAnnotations(data.annotations);
+                    setAnnotationHistory([[], data.annotations]);
+                    setAnnotationHistoryIndex(1);
+                }
             } catch {
                 setNotFound(true);
             } finally {
@@ -1384,8 +1456,8 @@ export default function ReportPage() {
                                     <VideoAnnotationOverlay
                                         annotations={videoAnnotations}
                                         currentTime={videoCurrentTime}
-                                        onAddAnnotation={(a) => setVideoAnnotations(prev => [...prev, a])}
-                                        onDeleteAnnotation={(id) => setVideoAnnotations(prev => prev.filter(a => a.id !== id))}
+                                        onAddAnnotation={(a) => pushAnnotationState([...videoAnnotations, a])}
+                                        onDeleteAnnotation={(id) => pushAnnotationState(videoAnnotations.filter(a => a.id !== id))}
                                         isEditing={annotationEditing}
                                         activeTool={annotationTool}
                                         activeColor={annotationColor}
@@ -1400,6 +1472,11 @@ export default function ReportPage() {
                                         activeColor={annotationColor}
                                         onSetColor={setAnnotationColor}
                                         annotationCount={videoAnnotations.length}
+                                        onUndo={annotationUndo}
+                                        onRedo={annotationRedo}
+                                        canUndo={annotationHistoryIndex > 0}
+                                        canRedo={annotationHistoryIndex < annotationHistory.length - 1}
+                                        onClearAll={() => pushAnnotationState([])}
                                     />
                                 </div>
                             </div>

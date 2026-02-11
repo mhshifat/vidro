@@ -48,6 +48,7 @@ const updateReportSchema = z.object({
     translations: z.record(z.string(), z.any()).optional(),
     highlightStart: z.number().optional(),
     highlightEnd: z.number().optional(),
+    annotations: z.array(z.any()).optional(),
 });
 
 export async function GET(req: Request) {
@@ -178,6 +179,7 @@ export async function PATCH(req: Request) {
         if (parsed.data.logSummary !== undefined) updateData.logSummary = parsed.data.logSummary;
         if (parsed.data.stakeholderSummary !== undefined) updateData.stakeholderSummary = parsed.data.stakeholderSummary;
         if (parsed.data.suggestedFix !== undefined) updateData.suggestedFix = parsed.data.suggestedFix;
+        if (parsed.data.annotations !== undefined) updateData.annotations = parsed.data.annotations;
 
         if (Object.keys(updateData).length === 0) {
             return NextResponse.json({ error: "No fields to update." }, { status: 400 });

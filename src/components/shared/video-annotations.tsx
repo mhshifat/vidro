@@ -41,6 +41,7 @@ export function VideoAnnotationOverlay({
     const overlayRef = useRef<HTMLDivElement>(null);
     const [drawing, setDrawing] = useState(false);
     const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+    const [currentPos, setCurrentPos] = useState<{ x: number; y: number } | null>(null);
     const [textInput, setTextInput] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: false });
     const [textValue, setTextValue] = useState("");
 
@@ -72,8 +73,14 @@ export function VideoAnnotationOverlay({
         }
 
         setStartPos(pos);
+        setCurrentPos(pos);
         setDrawing(true);
     }, [isEditing, activeTool, getRelativePos]);
+
+    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+        if (!drawing) return;
+        setCurrentPos(getRelativePos(e));
+    }, [drawing, getRelativePos]);
 
     const handleMouseUp = useCallback((e: React.MouseEvent) => {
         if (!drawing || !startPos || !activeTool) return;
@@ -123,6 +130,7 @@ export function VideoAnnotationOverlay({
 
         setDrawing(false);
         setStartPos(null);
+        setCurrentPos(null);
     }, [drawing, startPos, activeTool, getRelativePos, currentTime, activeColor, onAddAnnotation]);
 
     const handleTextSubmit = useCallback(() => {
@@ -148,9 +156,10 @@ export function VideoAnnotationOverlay({
             ref={overlayRef}
             className={`absolute inset-0 ${isEditing ? "cursor-crosshair z-20" : "pointer-events-none z-10"}`}
             onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
         >
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: isEditing ? 'none' : 'none' }} viewBox="0 0 100 100" preserveAspectRatio="none">
                 {visibleAnnotations.map(a => {
                     switch (a.type) {
                         case "arrow":
@@ -161,36 +170,108 @@ export function VideoAnnotationOverlay({
                                             <polygon points="0 0, 10 3.5, 0 7" fill={a.color} />
                                         </marker>
                                     </defs>
+                                    {/* Invisible thick hit area for clicking */}
+                                    {isEditing && (
+                                        <line
+                                            x1={a.x} y1={a.y} x2={a.endX} y2={a.endY}
+                                            stroke="transparent" strokeWidth="2"
+                                            style={{ pointerEvents: activeTool === 'text' ? 'none' : 'stroke', cursor: 'default' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onMouseUp={(e) => e.stopPropagation()}
+                                        />
+                                    )}
                                     <line
                                         x1={a.x} y1={a.y} x2={a.endX} y2={a.endY}
                                         stroke={a.color} strokeWidth="0.4"
                                         markerEnd={`url(#arrowhead-${a.id})`}
+                                        style={{ pointerEvents: 'none' }}
                                     />
                                 </g>
                             );
                         case "circle":
                             return (
-                                <ellipse
-                                    key={a.id}
-                                    cx={a.x} cy={a.y}
-                                    rx={(a.width || 5) / 2} ry={(a.height || 5) / 2}
-                                    stroke={a.color} strokeWidth="0.3" fill="none"
-                                />
+                                <g key={a.id}>
+                                    {isEditing && (
+                                        <ellipse
+                                            cx={a.x} cy={a.y}
+                                            rx={(a.width || 5) / 2} ry={(a.height || 5) / 2}
+                                            stroke="transparent" strokeWidth="2" fill="transparent"
+                                            style={{ pointerEvents: activeTool === 'text' ? 'none' : 'all', cursor: 'default' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onMouseUp={(e) => e.stopPropagation()}
+                                        />
+                                    )}
+                                    <ellipse
+                                        cx={a.x} cy={a.y}
+                                        rx={(a.width || 5) / 2} ry={(a.height || 5) / 2}
+                                        stroke={a.color} strokeWidth="0.3" fill="none"
+                                        style={{ pointerEvents: 'none' }}
+                                    />
+                                </g>
                             );
                         case "rectangle":
                             return (
-                                <rect
-                                    key={a.id}
-                                    x={a.x} y={a.y}
-                                    width={a.width || 10} height={a.height || 10}
-                                    stroke={a.color} strokeWidth="0.3" fill="none"
-                                />
+                                <g key={a.id}>
+                                    {isEditing && (
+                                        <rect
+                                            x={a.x} y={a.y}
+                                            width={a.width || 10} height={a.height || 10}
+                                            stroke="transparent" strokeWidth="2" fill="transparent"
+                                            style={{ pointerEvents: activeTool === 'text' ? 'none' : 'all', cursor: 'default' }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onMouseUp={(e) => e.stopPropagation()}
+                                        />
+                                    )}
+                                    <rect
+                                        x={a.x} y={a.y}
+                                        width={a.width || 10} height={a.height || 10}
+                                        stroke={a.color} strokeWidth="0.3" fill="none"
+                                        style={{ pointerEvents: 'none' }}
+                                    />
+                                </g>
                             );
                         default:
                             return null;
                     }
-                })}
-            </svg>
+                })}                {/* Live preview while drawing */}
+                {drawing && startPos && currentPos && activeTool === "arrow" && (
+                    <g>
+                        <defs>
+                            <marker id="arrowhead-preview" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill={activeColor} opacity="0.6" />
+                            </marker>
+                        </defs>
+                        <line
+                            x1={startPos.x} y1={startPos.y} x2={currentPos.x} y2={currentPos.y}
+                            stroke={activeColor} strokeWidth="0.4" opacity="0.6"
+                            strokeDasharray="0.8 0.4"
+                            markerEnd="url(#arrowhead-preview)"
+                        />
+                    </g>
+                )}
+                {drawing && startPos && currentPos && activeTool === "circle" && (
+                    <ellipse
+                        cx={(startPos.x + currentPos.x) / 2}
+                        cy={(startPos.y + currentPos.y) / 2}
+                        rx={Math.abs(currentPos.x - startPos.x) / 2}
+                        ry={Math.abs(currentPos.y - startPos.y) / 2}
+                        stroke={activeColor} strokeWidth="0.3" fill="none" opacity="0.6"
+                        strokeDasharray="0.8 0.4"
+                    />
+                )}
+                {drawing && startPos && currentPos && activeTool === "rectangle" && (
+                    <rect
+                        x={Math.min(startPos.x, currentPos.x)}
+                        y={Math.min(startPos.y, currentPos.y)}
+                        width={Math.abs(currentPos.x - startPos.x)}
+                        height={Math.abs(currentPos.y - startPos.y)}
+                        stroke={activeColor} strokeWidth="0.3" fill="none" opacity="0.6"
+                        strokeDasharray="0.8 0.4"
+                    />
+                )}            </svg>
 
             {/* Text annotations */}
             {visibleAnnotations.filter(a => a.type === "text").map(a => (
@@ -205,7 +286,9 @@ export function VideoAnnotationOverlay({
                         transform: "translate(-50%, -50%)",
                         whiteSpace: "nowrap",
                     }}
-                    onClick={() => isEditing && onDeleteAnnotation(a.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
                 >
                     {a.text}
                 </div>
@@ -215,13 +298,15 @@ export function VideoAnnotationOverlay({
             {isEditing && visibleAnnotations.map(a => (
                 <button
                     key={`del-${a.id}`}
-                    className="absolute w-4 h-4 rounded-full bg-red-500 text-white text-[8px] flex items-center justify-center pointer-events-auto hover:bg-red-600 z-30"
+                    className="absolute w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center pointer-events-auto hover:bg-red-600 hover:scale-110 transition-transform z-30 shadow-md"
                     style={{
                         left: `${a.x}%`,
-                        top: `${Math.max(0, a.y - 3)}%`,
+                        top: `${Math.max(0, a.y - 4)}%`,
                         transform: "translate(-50%, -50%)",
                     }}
-                    onClick={() => onDeleteAnnotation(a.id)}
+                    onClick={(e) => { e.stopPropagation(); onDeleteAnnotation(a.id); }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
                     title="Delete annotation"
                 >
                     ×
@@ -269,6 +354,11 @@ export function AnnotationToolbar({
     activeColor,
     onSetColor,
     annotationCount,
+    onUndo,
+    onRedo,
+    onClearAll,
+    canUndo = false,
+    canRedo = false,
 }: {
     isEditing: boolean;
     onToggleEditing: () => void;
@@ -277,6 +367,11 @@ export function AnnotationToolbar({
     activeColor: string;
     onSetColor: (color: string) => void;
     annotationCount: number;
+    onUndo?: () => void;
+    onRedo?: () => void;
+    onClearAll?: () => void;
+    canUndo?: boolean;
+    canRedo?: boolean;
 }) {
     return (
         <div className="flex items-center gap-2 flex-wrap">
@@ -321,6 +416,41 @@ export function AnnotationToolbar({
                             />
                         ))}
                     </div>
+                    <div className="h-4 w-px bg-border" />
+                    <div className="flex gap-0.5 border rounded-lg p-0.5">
+                        <button
+                            onClick={onUndo}
+                            disabled={!canUndo}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                                canUndo ? "hover:bg-accent text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+                            }`}
+                            title="Undo (Ctrl+Z)"
+                        >
+                            ↩
+                        </button>
+                        <button
+                            onClick={onRedo}
+                            disabled={!canRedo}
+                            className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                                canRedo ? "hover:bg-accent text-muted-foreground" : "text-muted-foreground/30 cursor-not-allowed"
+                            }`}
+                            title="Redo (Ctrl+Y)"
+                        >
+                            ↪
+                        </button>
+                    </div>
+                    {annotationCount > 0 && (
+                        <>
+                            <div className="h-4 w-px bg-border" />
+                            <button
+                                onClick={onClearAll}
+                                className="px-2 py-1 text-xs rounded-md transition-colors text-red-500 hover:bg-red-500/10 border border-red-500/20"
+                                title="Clear all annotations"
+                            >
+                                🗑 Clear All
+                            </button>
+                        </>
+                    )}
                 </>
             )}
         </div>

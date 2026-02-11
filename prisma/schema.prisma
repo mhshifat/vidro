@@ -63,6 +63,7 @@ model Report {
   translations        Json?    @map("translations")          // { lang: { title, description } }
   highlightStart      Float?   @map("highlight_start")       // video highlight start (seconds)
   highlightEnd        Float?   @map("highlight_end")         // video highlight end (seconds)
+  annotations         Json?    @map("annotations")           // video annotations array
   
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id])
