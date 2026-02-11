@@ -1,4 +1,5 @@
 import { ReportRepository } from "@/repositories/report-repository";
+import { prisma } from "@/lib/db";
 import { StorageService } from "@/services/storage/storage-service";
 import { Logger, type LogContext } from "@/lib/logger";
 import type {
@@ -102,7 +103,7 @@ export class ReportService {
     ): Promise<{ report: SerializedReport | null; error?: string }> {
         try {
             // Transaction: create report and update user storage
-            const report = await reportRepository.prisma.$transaction(async (tx) => {
+            const report = await prisma.$transaction(async (tx) => {
                 const created = await tx.report.create({
                     data: {
                         title: data.title || (data.type === "SCREENSHOT" ? "Screenshot" : "Untitled Bug Report"),
@@ -114,8 +115,8 @@ export class ReportService {
                         fileSize: data.fileSize ?? 0,
                         transcript: data.transcript ?? null,
                         userId: data.userId,
-                        consoleLogs: data.consoleLogs ?? null,
-                        networkLogs: data.networkLogs ?? null,
+                        consoleLogs: data.consoleLogs ?? undefined,
+                        networkLogs: data.networkLogs ?? undefined,
                     },
                 });
                 await tx.user.update({
@@ -220,7 +221,7 @@ export class ReportService {
 
             // Transaction: delete report and reclaim storage
             const fileSize = storageInfo?.fileSize ?? 0;
-            await reportRepository.prisma.$transaction(async (tx) => {
+            await prisma.$transaction(async (tx) => {
                 await tx.report.delete({ where: { id } });
                 await tx.user.update({
                     where: { id: userId },

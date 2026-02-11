@@ -1,6 +1,16 @@
 import { Pool } from "pg";
 import Cursor from "pg-cursor";
-// ...existing code...
+import { prisma } from "@/lib/db";
+import type {
+    Report,
+    ReportSummary,
+    CreateReportInput,
+    UpdateReportInput,
+    ReportListOptions,
+    PaginatedReports,
+    ReportType,
+} from "@/entities/report";
+const DEFAULT_PAGE_SIZE = 20;
 
 export class ReportRepository {
     /**
@@ -63,20 +73,6 @@ export class ReportRepository {
             throw err;
         }
     }
-import { prisma } from "@/lib/db";
-import type {
-    Report,
-    ReportSummary,
-    CreateReportInput,
-    UpdateReportInput,
-    ReportListOptions,
-    PaginatedReports,
-    ReportType,
-} from "@/entities/report";
-
-const DEFAULT_PAGE_SIZE = 20;
-
-export class ReportRepository {
     /**
      * Find a report by ID
      */
