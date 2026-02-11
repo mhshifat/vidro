@@ -48,12 +48,21 @@ export async function POST(req: Request) {
             userId: payload.userId as string,
         };
 
-        // Keyword search across title, description, transcript
+        // Keyword search across title, description, transcript, and AI fields
         if (searchParams.keywords.length > 0) {
             where.OR = searchParams.keywords.flatMap(kw => [
                 { title: { contains: kw, mode: "insensitive" as const } },
                 { description: { contains: kw, mode: "insensitive" as const } },
                 { transcript: { contains: kw, mode: "insensitive" as const } },
+                { reproSteps: { contains: kw, mode: "insensitive" as const } },
+                { rootCause: { contains: kw, mode: "insensitive" as const } },
+                { logSummary: { contains: kw, mode: "insensitive" as const } },
+                { suggestedFix: { contains: kw, mode: "insensitive" as const } },
+                { stakeholderSummary: { contains: kw, mode: "insensitive" as const } },
+                { accessibilityAudit: { contains: kw, mode: "insensitive" as const } },
+                { performanceAnalysis: { contains: kw, mode: "insensitive" as const } },
+                { securityScan: { contains: kw, mode: "insensitive" as const } },
+                { testCases: { contains: kw, mode: "insensitive" as const } },
             ]);
         }
 
@@ -64,18 +73,66 @@ export async function POST(req: Request) {
         if (searchParams.filters.type) {
             where.type = searchParams.filters.type as "VIDEO" | "SCREENSHOT";
         }
+        if (searchParams.filters.priority) {
+            where.priority = searchParams.filters.priority;
+        }
 
         const reports = await prisma.report.findMany({
             where,
             orderBy: { createdAt: "desc" },
             take: 20,
+            select: {
+                id: true,
+                title: true,
+                description: true,
+                type: true,
+                videoUrl: true,
+                imageUrl: true,
+                storageKey: true,
+                fileSize: true,
+                consoleLogs: true,
+                networkLogs: true,
+                severity: true,
+                priority: true,
+                tags: true,
+                reproSteps: true,
+                rootCause: true,
+                logSummary: true,
+                transcript: true,
+                createdAt: true,
+            },
+        });
+
+        // Compute which fields matched for each result
+        const resultsWithMatches = reports.map(r => {
+            const matchedFields: string[] = [];
+            const lowerKeywords = searchParams.keywords.map((k: string) => k.toLowerCase());
+            if (lowerKeywords.length > 0) {
+                const fieldChecks: [string, string | null | undefined][] = [
+                    ["title", r.title], ["description", r.description], ["transcript", r.transcript],
+                    ["reproSteps", r.reproSteps], ["rootCause", r.rootCause], ["logSummary", r.logSummary],
+                ];
+                for (const [name, val] of fieldChecks) {
+                    if (val && lowerKeywords.some(kw => val.toLowerCase().includes(kw))) {
+                        matchedFields.push(name);
+                    }
+                }
+                // Check tags (JSON array)
+                if (r.tags && Array.isArray(r.tags)) {
+                    const tagsLower = (r.tags as string[]).map(t => t.toLowerCase());
+                    if (lowerKeywords.some(kw => tagsLower.some(t => t.includes(kw)))) {
+                        matchedFields.push("tags");
+                    }
+                }
+            }
+            return { ...serializeReport(r), matchedFields };
         });
 
         return NextResponse.json({
             interpretation: searchParams.interpretation,
             filters: searchParams.filters,
             keywords: searchParams.keywords,
-            results: reports.map(serializeReport),
+            results: resultsWithMatches,
         });
     } catch (error) {
         console.error("[AI Search] Failed:", error);

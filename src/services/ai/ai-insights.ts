@@ -248,6 +248,7 @@ Respond ONLY with valid JSON: { "tags": ["string", ...] }`;
         keywords: string[];
         filters: {
             severity?: string;
+            priority?: string;
             type?: string;
             hasErrors?: boolean;
             tags?: string[];
@@ -257,11 +258,11 @@ Respond ONLY with valid JSON: { "tags": ["string", ...] }`;
         const system = `You are a search query parser for a bug reporting tool. Convert a natural language search query into structured search parameters.
 
 Extract:
-- keywords: Important search terms to match against title/description/transcript
-- filters: Structured filters (severity: critical/high/medium/low, type: VIDEO/SCREENSHOT, hasErrors: true/false, tags: array of tag names)
+- keywords: Important search terms to match against title/description/transcript/repro steps/root cause/log summary
+- filters: Structured filters (severity: critical/high/medium/low, priority: p0/p1/p2/p3, type: VIDEO/SCREENSHOT, hasErrors: true/false, tags: array of tag names)
 - interpretation: A one-sentence explanation of what the user is searching for
 
-Respond ONLY with valid JSON: { "keywords": ["string"], "filters": { "severity": "string?", "type": "string?", "hasErrors": boolean?, "tags": ["string"]? }, "interpretation": "string" }`;
+Respond ONLY with valid JSON: { "keywords": ["string"], "filters": { "severity": "string?", "priority": "string?", "type": "string?", "hasErrors": boolean?, "tags": ["string"]? }, "interpretation": "string" }`;
         const result = await this.chat(system, query);
         return this.parseJSON(result);
     }

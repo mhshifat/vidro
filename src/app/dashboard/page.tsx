@@ -112,6 +112,10 @@ interface ReportSummary {
     fileSize: number | null;
     consoleLogs: unknown[] | null;
     networkLogs: unknown[] | null;
+    severity?: string | null;
+    priority?: string | null;
+    tags?: string[] | null;
+    matchedFields?: string[];
     createdAt: string;
 }
 
@@ -574,6 +578,47 @@ export default function DashboardPage() {
                                                 <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                                                     {report.description}
                                                 </p>
+                                            )}
+
+                                            {/* Severity / Priority / Tags (shown from search results) */}
+                                            {(report.severity || report.priority || (report.tags && (report.tags as string[]).length > 0)) && (
+                                                <div className="flex items-center gap-1 flex-wrap">
+                                                    {report.severity && (
+                                                        <Badge className={`text-[10px] h-5 px-1.5 ${
+                                                            report.severity === 'critical' ? 'bg-red-500/15 text-red-600 border-red-500/20' :
+                                                            report.severity === 'high' ? 'bg-orange-500/15 text-orange-600 border-orange-500/20' :
+                                                            report.severity === 'medium' ? 'bg-amber-500/15 text-amber-600 border-amber-500/20' :
+                                                            'bg-green-500/15 text-green-600 border-green-500/20'
+                                                        }`}>
+                                                            {report.severity}
+                                                        </Badge>
+                                                    )}
+                                                    {report.priority && (
+                                                        <Badge variant="outline" className="text-[10px] h-5 px-1.5 font-mono">
+                                                            {report.priority.toUpperCase()}
+                                                        </Badge>
+                                                    )}
+                                                    {report.tags && (report.tags as string[]).slice(0, 3).map((tag: string) => (
+                                                        <Badge key={tag} variant="secondary" className="text-[10px] h-5 px-1.5">
+                                                            {tag}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Matched fields indicator (search mode) */}
+                                            {report.matchedFields && report.matchedFields.length > 0 && (
+                                                <div className="flex items-center gap-1 text-[10px] text-primary">
+                                                    {Icons.sparkles}
+                                                    <span>Found in: {report.matchedFields.map(f => {
+                                                        const labels: Record<string, string> = {
+                                                            title: 'Title', description: 'Description', transcript: 'Transcript',
+                                                            reproSteps: 'Repro Steps', rootCause: 'Root Cause', logSummary: 'Log Summary',
+                                                            tags: 'Tags', suggestedFix: 'Suggested Fix',
+                                                        };
+                                                        return labels[f] || f;
+                                                    }).join(', ')}</span>
+                                                </div>
                                             )}
 
                                             {/* Tags */}

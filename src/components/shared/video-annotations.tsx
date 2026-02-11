@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect } from "react";
 export interface VideoAnnotation {
     id: string;
     timestamp: number; // seconds in video
-    type: "arrow" | "circle" | "text" | "rectangle";
+    endTimestamp?: number; // end time — blur regions persist from timestamp to endTimestamp
+    type: "arrow" | "circle" | "text" | "rectangle" | "blur";
     x: number; // percentage 0-100
     y: number; // percentage 0-100
     width?: number;
@@ -18,10 +19,12 @@ export interface VideoAnnotation {
 interface VideoAnnotationOverlayProps {
     annotations: VideoAnnotation[];
     currentTime: number;
+    videoDuration?: number;
     onAddAnnotation: (annotation: VideoAnnotation) => void;
     onDeleteAnnotation: (id: string) => void;
+    onUpdateAnnotation?: (updated: VideoAnnotation) => void;
     isEditing: boolean;
-    activeTool: "arrow" | "circle" | "text" | "rectangle" | null;
+    activeTool: "arrow" | "circle" | "text" | "rectangle" | "blur" | null;
     activeColor: string;
 }
 
@@ -29,11 +32,30 @@ function generateId() {
     return Math.random().toString(36).slice(2, 10);
 }
 
+function fmtSec(s: number) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function parseSec(str: string): number | null {
+    const parts = str.split(':');
+    if (parts.length === 2) {
+        const m = parseInt(parts[0], 10);
+        const s = parseInt(parts[1], 10);
+        if (!isNaN(m) && !isNaN(s)) return m * 60 + s;
+    }
+    const n = parseFloat(str);
+    return isNaN(n) ? null : n;
+}
+
 export function VideoAnnotationOverlay({
     annotations,
     currentTime,
+    videoDuration = 0,
     onAddAnnotation,
     onDeleteAnnotation,
+    onUpdateAnnotation,
     isEditing,
     activeTool,
     activeColor,
@@ -44,11 +66,17 @@ export function VideoAnnotationOverlay({
     const [currentPos, setCurrentPos] = useState<{ x: number; y: number } | null>(null);
     const [textInput, setTextInput] = useState<{ x: number; y: number; visible: boolean }>({ x: 0, y: 0, visible: false });
     const [textValue, setTextValue] = useState("");
+    const [editingBlurId, setEditingBlurId] = useState<string | null>(null);
+    const [blurStartInput, setBlurStartInput] = useState("");
+    const [blurEndInput, setBlurEndInput] = useState("");
 
-    // Show annotations within ±0.5s of current time
-    const visibleAnnotations = annotations.filter(
-        a => Math.abs(a.timestamp - currentTime) < 0.5
-    );
+    // Show annotations: blur uses time range, others use ±0.5s window
+    const visibleAnnotations = annotations.filter(a => {
+        if (a.endTimestamp != null) {
+            return currentTime >= a.timestamp && currentTime <= a.endTimestamp;
+        }
+        return Math.abs(a.timestamp - currentTime) < 0.5;
+    });
 
     const getRelativePos = useCallback((e: React.MouseEvent) => {
         const rect = overlayRef.current?.getBoundingClientRect();
@@ -115,16 +143,17 @@ export function VideoAnnotationOverlay({
                 height: ry,
                 color: activeColor,
             });
-        } else if (activeTool === "rectangle") {
+        } else if (activeTool === "rectangle" || activeTool === "blur") {
             onAddAnnotation({
                 id: generateId(),
                 timestamp: currentTime,
-                type: "rectangle",
+                ...(activeTool === "blur" ? { endTimestamp: 999999 } : {}),
+                type: activeTool,
                 x: Math.min(startPos.x, endPos.x),
                 y: Math.min(startPos.y, endPos.y),
                 width: Math.abs(endPos.x - startPos.x),
                 height: Math.abs(endPos.y - startPos.y),
-                color: activeColor,
+                color: activeTool === "blur" ? "#000000" : activeColor,
             });
         }
 
@@ -271,7 +300,125 @@ export function VideoAnnotationOverlay({
                         stroke={activeColor} strokeWidth="0.3" fill="none" opacity="0.6"
                         strokeDasharray="0.8 0.4"
                     />
+                )}
+                {drawing && startPos && currentPos && activeTool === "blur" && (
+                    <rect
+                        x={Math.min(startPos.x, currentPos.x)}
+                        y={Math.min(startPos.y, currentPos.y)}
+                        width={Math.abs(currentPos.x - startPos.x)}
+                        height={Math.abs(currentPos.y - startPos.y)}
+                        stroke="#666" strokeWidth="0.3" fill="rgba(0,0,0,0.3)" opacity="0.7"
+                        strokeDasharray="0.8 0.4"
+                    />
                 )}            </svg>
+
+            {/* Blur regions — rendered as actual blurred divs over the video */}
+            {visibleAnnotations.filter(a => a.type === "blur").map(a => (
+                <div
+                    key={`blur-${a.id}`}
+                    className={`absolute overflow-hidden ${isEditing ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}`}
+                    style={{
+                        left: `${a.x}%`,
+                        top: `${a.y}%`,
+                        width: `${a.width || 10}%`,
+                        height: `${a.height || 10}%`,
+                        backdropFilter: "blur(16px)",
+                        WebkitBackdropFilter: "blur(16px)",
+                        background: "rgba(0,0,0,0.15)",
+                        borderRadius: "4px",
+                        border: isEditing ? (editingBlurId === a.id ? "2px solid rgba(59,130,246,0.8)" : "1px dashed rgba(255,255,255,0.4)") : "none",
+                    }}
+                    onClick={(e) => {
+                        if (!isEditing) return;
+                        e.stopPropagation();
+                        if (editingBlurId === a.id) {
+                            setEditingBlurId(null);
+                        } else {
+                            setEditingBlurId(a.id);
+                            setBlurStartInput(fmtSec(a.timestamp));
+                            setBlurEndInput(a.endTimestamp != null && a.endTimestamp < 999999 ? fmtSec(a.endTimestamp) : (videoDuration > 0 ? fmtSec(videoDuration) : 'end'));
+                        }
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onMouseUp={(e) => e.stopPropagation()}
+                >
+                    {/* Time range label */}
+                    {isEditing && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] text-center py-0.5 font-mono">
+                            {fmtSec(a.timestamp)} — {a.endTimestamp != null && a.endTimestamp < 999999 ? fmtSec(a.endTimestamp) : 'end'}
+                        </div>
+                    )}
+                </div>
+            ))}
+
+            {/* Blur time range editor */}
+            {isEditing && editingBlurId && (() => {
+                const blurAnn = annotations.find(a => a.id === editingBlurId && a.type === 'blur');
+                if (!blurAnn) return null;
+                return (
+                    <div
+                        className="absolute z-40 pointer-events-auto"
+                        style={{
+                            left: `${blurAnn.x}%`,
+                            top: `${Math.max(0, blurAnn.y - 1)}%`,
+                            transform: 'translate(0, -100%)',
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                        onMouseUp={e => e.stopPropagation()}
+                    >
+                        <div className="bg-gray-900/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-xl border border-white/10 space-y-1.5 min-w-[200px]">
+                            <p className="text-[10px] text-white/70 font-medium uppercase tracking-wider">Blur time range</p>
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 space-y-0.5">
+                                    <label className="text-[9px] text-white/50">From</label>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        value={blurStartInput}
+                                        onChange={e => setBlurStartInput(e.target.value)}
+                                        className="w-full bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono outline-none focus:border-blue-400"
+                                        placeholder="0:00"
+                                    />
+                                </div>
+                                <span className="text-white/40 text-xs mt-3">→</span>
+                                <div className="flex-1 space-y-0.5">
+                                    <label className="text-[9px] text-white/50">To</label>
+                                    <input
+                                        type="text"
+                                        value={blurEndInput}
+                                        onChange={e => setBlurEndInput(e.target.value)}
+                                        className="w-full bg-white/10 border border-white/20 rounded px-1.5 py-0.5 text-xs text-white font-mono outline-none focus:border-blue-400"
+                                        placeholder={videoDuration > 0 ? fmtSec(videoDuration) : 'end'}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                                <button
+                                    className="flex-1 text-[10px] font-medium bg-blue-500 hover:bg-blue-600 text-white rounded px-2 py-1 transition-colors"
+                                    onClick={() => {
+                                        if (!onUpdateAnnotation) return;
+                                        const startVal = parseSec(blurStartInput);
+                                        const endVal = blurEndInput.trim().toLowerCase() === 'end' ? 999999 : parseSec(blurEndInput);
+                                        if (startVal == null || endVal == null) return;
+                                        onUpdateAnnotation({ ...blurAnn, timestamp: Math.max(0, startVal), endTimestamp: endVal });
+                                        setEditingBlurId(null);
+                                    }}
+                                >
+                                    Apply
+                                </button>
+                                <button
+                                    className="text-[10px] text-white/60 hover:text-white px-2 py-1 rounded transition-colors"
+                                    onClick={() => setEditingBlurId(null)}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                            <p className="text-[9px] text-white/40">Format: m:ss or seconds. &quot;end&quot; = rest of video</p>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Text annotations */}
             {visibleAnnotations.filter(a => a.type === "text").map(a => (
@@ -343,6 +490,7 @@ const TOOLS: { tool: VideoAnnotation["type"]; icon: string; label: string }[] = 
     { tool: "arrow", icon: "↗", label: "Arrow" },
     { tool: "circle", icon: "○", label: "Circle" },
     { tool: "rectangle", icon: "□", label: "Rectangle" },
+    { tool: "blur", icon: "◩", label: "Blur / Redact" },
     { tool: "text", icon: "T", label: "Text" },
 ];
 

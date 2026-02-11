@@ -1532,8 +1532,10 @@ export default function ReportPage() {
                                     <VideoAnnotationOverlay
                                         annotations={videoAnnotations}
                                         currentTime={videoCurrentTime}
+                                        videoDuration={videoDurationRef.current}
                                         onAddAnnotation={(a) => pushAnnotationState([...videoAnnotations, a])}
                                         onDeleteAnnotation={(id) => pushAnnotationState(videoAnnotations.filter(a => a.id !== id))}
+                                        onUpdateAnnotation={(updated) => pushAnnotationState(videoAnnotations.map(a => a.id === updated.id ? updated : a))}
                                         isEditing={annotationEditing}
                                         activeTool={annotationTool}
                                         activeColor={annotationColor}
