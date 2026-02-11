@@ -608,4 +608,61 @@ Respond ONLY with valid JSON:
         const result = await this.chat(system, userPrompt);
         return this.parseJSON<VisualDiffResult>(result);
     }
+
+    /* ─── Feature 21: Video Chapters ────────────────────────────── */
+
+    async generateChapters(
+        ctx: ReportContext,
+        videoDuration: number
+    ): Promise<{ chapters: { title: string; start: number; end: number }[] }> {
+        const system = `You are a QA analyst reviewing a bug report recording. Based on the bug description, console logs, network logs, and video duration, generate logical video chapters that segment the recording into meaningful phases.
+
+Consider typical patterns in bug recordings:
+- Setup / Navigation phase
+- Trigger action / Reproduction steps  
+- Bug manifestation / Error occurrence
+- After-effects / Continued behavior
+
+The video is ${videoDuration.toFixed(1)} seconds long.
+
+Respond ONLY with valid JSON:
+{
+  "chapters": [
+    { "title": "string (short, descriptive)", "start": number (seconds), "end": number (seconds) }
+  ]
+}
+
+Rules:
+- Chapters must cover the entire video (first starts at 0, last ends at ${videoDuration.toFixed(1)})
+- No gaps or overlaps between chapters
+- 3-6 chapters depending on video length
+- Titles should be concise (2-5 words)`;
+
+        const result = await this.chat(system, this.buildContext(ctx), 1500);
+        return this.parseJSON<{ chapters: { title: string; start: number; end: number }[] }>(result);
+    }
+
+    /* ─── Feature 22: Screen OCR ────────────────────────────────── */
+
+    async extractTextFromFrame(context: string): Promise<{ text: string; regions: { text: string; location: string }[] }> {
+        const system = `You are an OCR specialist analyzing a bug report. Based on the bug report context and the timestamp in the video, infer what text would likely be visible on screen at this point in the recording.
+
+Consider:
+- Error messages / warning dialogs
+- UI labels, buttons, navigation items
+- Form field values and placeholders
+- Console output visible on screen
+- Status messages and toasts
+- URLs in the address bar
+
+Respond ONLY with valid JSON:
+{
+  "text": "all likely visible text concatenated with newlines",
+  "regions": [
+    { "text": "specific text content", "location": "description of where on screen" }
+  ]
+}`;
+        const result = await this.chat(system, context, 2000);
+        return this.parseJSON<{ text: string; regions: { text: string; location: string }[] }>(result);
+    }
 }

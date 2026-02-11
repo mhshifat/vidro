@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CommentsSection, type Comment, type CommentMarker, getCommentMarkers, fmtTimestamp as fmtCommentTs } from "@/components/shared/comments";
 import { AIInsightsPanel, type AIInsightsData } from "@/components/shared/ai-insights";
+import { VideoAnnotationOverlay, AnnotationToolbar, type VideoAnnotation } from "@/components/shared/video-annotations";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = {
@@ -167,6 +168,12 @@ interface NetworkLogEntry {
     timestamp: number;
 }
 
+interface VideoChapter {
+    title: string;
+    start: number;
+    end: number;
+}
+
 interface Report {
     id: string;
     title: string | null;
@@ -243,13 +250,23 @@ function consoleTypeIcon(type: string) {
 function VideoPlayer({
     src,
     commentMarkers = [],
+    errorTimestamps = [],
+    highlightRegion,
+    chapters = [],
     onTimeUpdate: onTimeUpdateCb,
     onSeekTo,
+    initialTime,
+    onDurationReady,
 }: {
     src: string;
     commentMarkers?: CommentMarker[];
+    errorTimestamps?: number[];
+    highlightRegion?: { start: number; end: number } | null;
+    chapters?: VideoChapter[];
     onTimeUpdate?: (time: number) => void;
     onSeekTo?: React.MutableRefObject<((t: number) => void) | null>;
+    initialTime?: number;
+    onDurationReady?: (dur: number) => void;
 }) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -267,6 +284,13 @@ function VideoPlayer({
     const [buffered, setBuffered] = useState(0);
     const [videoAspectRatio, setVideoAspectRatio] = useState(16 / 9);
     const [hoveredMarker, setHoveredMarker] = useState<CommentMarker | null>(null);
+    const [hoverTime, setHoverTime] = useState<number | null>(null);
+    const [hoverX, setHoverX] = useState(0);
+    const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+    const thumbnailCanvasRef = useRef<HTMLCanvasElement>(null);
+    const thumbnailVideoRef = useRef<HTMLVideoElement>(null);
+    const initialSeeked = useRef(false);
+    const wasSlowMo = useRef(false);
 
     // Expose seekTo to parent via ref
     useEffect(() => {
@@ -280,6 +304,53 @@ function VideoPlayer({
             };
         }
     });
+
+    // Seek to initial time (from ?t= query param)
+    useEffect(() => {
+        if (initialTime != null && initialTime > 0 && ready && !initialSeeked.current) {
+            const vid = videoRef.current;
+            if (vid) {
+                vid.currentTime = initialTime;
+                initialSeeked.current = true;
+            }
+        }
+    }, [initialTime, ready]);
+
+    // Auto slow-mo in highlight region
+    useEffect(() => {
+        if (!highlightRegion || !ready) return;
+        const vid = videoRef.current;
+        if (!vid) return;
+        const inRegion = currentTime >= highlightRegion.start && currentTime <= highlightRegion.end;
+        if (inRegion && !wasSlowMo.current) {
+            wasSlowMo.current = true;
+            vid.playbackRate = 0.5;
+            setSpeed(0.5);
+        } else if (!inRegion && wasSlowMo.current) {
+            wasSlowMo.current = false;
+            vid.playbackRate = 1;
+            setSpeed(1);
+        }
+    }, [currentTime, highlightRegion, ready]);
+
+    // Generate thumbnail on hover using hidden video element
+    useEffect(() => {
+        if (hoverTime == null || !src) { setThumbnailUrl(null); return; }
+        const thumbVid = thumbnailVideoRef.current;
+        const canvas = thumbnailCanvasRef.current;
+        if (!thumbVid || !canvas) return;
+        thumbVid.currentTime = hoverTime;
+        const handler = () => {
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return;
+            canvas.width = 160;
+            canvas.height = 90;
+            ctx.drawImage(thumbVid, 0, 0, 160, 90);
+            setThumbnailUrl(canvas.toDataURL("image/jpeg", 0.6));
+        };
+        thumbVid.addEventListener("seeked", handler, { once: true });
+        return () => thumbVid.removeEventListener("seeked", handler);
+    }, [hoverTime, src]);
 
     const showControls = useCallback(() => {
         setControlsVisible(true);
@@ -350,6 +421,15 @@ function VideoPlayer({
         document.addEventListener("fullscreenchange", handler);
         return () => document.removeEventListener("fullscreenchange", handler);
     }, []);
+
+    // Notify parent when duration is known
+    const durationReportedRef = useRef(false);
+    useEffect(() => {
+        if (ready && duration > 0 && !durationReportedRef.current) {
+            durationReportedRef.current = true;
+            onDurationReady?.(duration);
+        }
+    }, [ready, duration, onDurationReady]);
 
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -457,7 +537,41 @@ function VideoPlayer({
                             const rect = e.currentTarget.getBoundingClientRect();
                             vid.currentTime = ((e.clientX - rect.left) / rect.width) * seekDuration;
                         }}
+                        onMouseMove={(e) => {
+                            e.stopPropagation();
+                            if (duration <= 0) return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                            setHoverTime(pct * duration);
+                            setHoverX(e.clientX - rect.left);
+                        }}
+                        onMouseLeave={() => { setHoverTime(null); setThumbnailUrl(null); }}
                     >
+                        {/* Error heatmap zones */}
+                        {duration > 0 && errorTimestamps.map((ts, i) => {
+                            const pct = (ts / duration) * 100;
+                            if (pct < 0 || pct > 100) return null;
+                            return (
+                                <div key={`err-${i}`} className="absolute inset-y-0 opacity-40 rounded-full bg-red-500" style={{ left: `${Math.max(0, pct - 0.5)}%`, width: "1%" }} />
+                            );
+                        })}
+
+                        {/* Highlight region (AI-detected bug moment) */}
+                        {highlightRegion && duration > 0 && (
+                            <div className="absolute inset-y-0 bg-amber-400/25 border-x border-amber-400/50 rounded-full" style={{
+                                left: `${(highlightRegion.start / duration) * 100}%`,
+                                width: `${((highlightRegion.end - highlightRegion.start) / duration) * 100}%`,
+                            }} />
+                        )}
+
+                        {/* Chapter markers */}
+                        {duration > 0 && chapters.map((ch, i) => {
+                            const pct = (ch.start / duration) * 100;
+                            if (pct <= 0 || pct >= 100) return null;
+                            return (
+                                <div key={`ch-${i}`} className="absolute top-0 bottom-0 w-0.5 bg-white/40" style={{ left: `${pct}%` }} />
+                            );
+                        })}
                         <div className="absolute inset-y-0 left-0 bg-white/20 rounded-full transition-[width] duration-300 overflow-hidden" style={{ width: `${buffered}%` }} />
                         <div className="absolute inset-y-0 left-0 bg-white rounded-full transition-[width] duration-100 overflow-hidden" style={{ width: `${progress}%` }} />
                         <div className="absolute top-1/2 -translate-y-1/2 size-3.5 rounded-full bg-white shadow-lg shadow-black/40 opacity-0 group-hover/progress:opacity-100 transition-opacity duration-200 -ml-1.5" style={{ left: `${progress}%` }} />
@@ -501,7 +615,49 @@ function VideoPlayer({
                                 </div>
                             );
                         })}
+
+                        {/* Thumbnail preview on hover */}
+                        {hoverTime != null && (
+                            <div className="absolute z-20 pointer-events-none" style={{ left: `${hoverX}px`, bottom: "100%", transform: "translateX(-50%)" }}>
+                                <div className="mb-2 flex flex-col items-center">
+                                    {thumbnailUrl && (
+                                        <img src={thumbnailUrl} alt="" className="w-40 h-[90px] rounded border border-white/20 shadow-lg object-cover mb-1" />
+                                    )}
+                                    <span className="text-[10px] font-mono text-white bg-black/80 px-1.5 py-0.5 rounded">{fmtTime(hoverTime)}</span>
+                                    {/* Show chapter name if hovering over one */}
+                                    {chapters.length > 0 && (() => {
+                                        const ch = chapters.find(c => hoverTime >= c.start && hoverTime < c.end);
+                                        return ch ? <span className="text-[10px] text-white/70 mt-0.5">{ch.title}</span> : null;
+                                    })()}
+                                </div>
+                            </div>
+                        )}
                     </div>
+
+                    {/* Chapter bar */}
+                    {chapters.length > 0 && duration > 0 && (
+                        <div className="flex h-4 mt-0.5 gap-px">
+                            {chapters.map((ch, i) => {
+                                const left = (ch.start / duration) * 100;
+                                const width = ((ch.end - ch.start) / duration) * 100;
+                                const isActive = currentTime >= ch.start && currentTime < ch.end;
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`relative group/ch cursor-pointer rounded-sm text-[9px] font-medium text-white/60 truncate px-1 leading-4 transition-colors ${isActive ? "bg-white/20 text-white" : "hover:bg-white/10"}`}
+                                        style={{ width: `${width}%` }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            const vid = videoRef.current;
+                                            if (vid) vid.currentTime = ch.start;
+                                        }}
+                                    >
+                                        {ch.title}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
 
                     {/* Bottom controls */}
                     <div className="flex items-center justify-between gap-2 text-white">
@@ -536,6 +692,10 @@ function VideoPlayer({
                     </div>
                 </div>
             </div>
+
+            {/* Hidden elements for thumbnail generation */}
+            <video ref={thumbnailVideoRef} src={src} className="hidden" preload="auto" muted />
+            <canvas ref={thumbnailCanvasRef} className="hidden" />
         </div>
     );
 }
@@ -546,7 +706,9 @@ function VideoPlayer({
 export default function ReportPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const id = params.id as string;
+    const initialTime = searchParams.get("t") ? parseFloat(searchParams.get("t")!) : undefined;
 
     const [report, setReport] = useState<Report | null>(null);
     const [loading, setLoading] = useState(true);
@@ -568,6 +730,22 @@ export default function ReportPage() {
     // Video ↔ Comments state
     const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
     const [commentMarkers, setCommentMarkers] = useState<CommentMarker[]>([]);
+    const [chapters, setChapters] = useState<VideoChapter[]>([]);
+    const [loadingChapters, setLoadingChapters] = useState(false);
+    const [showClipExport, setShowClipExport] = useState(false);
+    const [clipRange, setClipRange] = useState<[number, number]>([0, 0]);
+    const [clipExporting, setClipExporting] = useState(false);
+    const [clipMessage, setClipMessage] = useState<string | null>(null);
+    const [showTrimmer, setShowTrimmer] = useState(false);
+    const [trimRange, setTrimRange] = useState<[number, number]>([0, 0]);
+    const [trimming, setTrimming] = useState(false);
+    const [showOCR, setShowOCR] = useState(false);
+    const [ocrText, setOcrText] = useState<string>("");
+    const [ocrLoading, setOcrLoading] = useState(false);
+    const [videoAnnotations, setVideoAnnotations] = useState<VideoAnnotation[]>([]);
+    const [annotationEditing, setAnnotationEditing] = useState(false);
+    const [annotationTool, setAnnotationTool] = useState<VideoAnnotation["type"] | null>(null);
+    const [annotationColor, setAnnotationColor] = useState("#ef4444");
     const seekToRef = useRef<((t: number) => void) | null>(null);
 
     const handleCommentsLoaded = useCallback((loadedComments: Comment[]) => {
@@ -581,6 +759,196 @@ export default function ReportPage() {
     const handleSeekTo = useCallback((seconds: number) => {
         seekToRef.current?.(seconds);
     }, []);
+
+    // Compute error timestamps for heatmap (seconds since first log entry)
+    const errorTimestamps = useMemo(() => {
+        if (!report?.consoleLogs) return [];
+        const logs = report.consoleLogs as ConsoleLogEntry[];
+        const errors = logs.filter(l => l.type === "error");
+        if (errors.length === 0 || logs.length === 0) return [];
+        const firstTs = logs[0].timestamp;
+        return errors.map(e => (e.timestamp - firstTs) / 1000);
+    }, [report?.consoleLogs]);
+
+    // Highlight region from AI
+    const highlightRegion = useMemo(() => {
+        if (!report?.highlightStart || !report?.highlightEnd) return null;
+        return { start: report.highlightStart, end: report.highlightEnd };
+    }, [report?.highlightStart, report?.highlightEnd]);
+
+    // Video duration ref for chapter generation
+    const videoDurationRef = useRef(0);
+
+    // Generate AI chapters when video is loaded
+    const generateChapters = useCallback(async () => {
+        if (!report || loadingChapters || chapters.length > 0) return;
+        const dur = videoDurationRef.current;
+        if (dur <= 0) return;
+        setLoadingChapters(true);
+        try {
+            const res = await fetch("/api/ai/chapters", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ reportId: report.id, videoDuration: dur }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.chapters?.length) setChapters(data.chapters);
+            }
+        } catch (err) {
+            console.error("Failed to generate chapters:", err);
+        } finally {
+            setLoadingChapters(false);
+        }
+    }, [report, loadingChapters, chapters.length]);
+
+    // Export clip as GIF/WebM
+    const handleClipExport = useCallback(async (format: "gif" | "webm") => {
+        if (!report?.videoUrl || clipExporting) return;
+        setClipExporting(true);
+        try {
+            const video = document.createElement("video");
+            video.crossOrigin = "anonymous";
+            video.src = report.videoUrl;
+            video.muted = true;
+            await new Promise<void>((resolve) => {
+                video.onloadeddata = () => resolve();
+                video.load();
+            });
+
+            const [start, end] = clipRange;
+            const clipDuration = end - start;
+            if (clipDuration <= 0) { setClipExporting(false); return; }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 360;
+            const ctx2d = canvas.getContext("2d")!;
+
+            if (format === "webm") {
+                // Record canvas as WebM
+                const stream = canvas.captureStream(30);
+                const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+                const chunks: BlobPart[] = [];
+                recorder.ondataavailable = (e) => chunks.push(e.data);
+
+                const done = new Promise<Blob>((resolve) => {
+                    recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+                });
+
+                video.currentTime = start;
+                await new Promise<void>((r) => { video.onseeked = () => r(); });
+
+                recorder.start();
+                video.play();
+
+                await new Promise<void>((resolve) => {
+                    const drawFrame = () => {
+                        if (video.currentTime >= end) {
+                            video.pause();
+                            recorder.stop();
+                            resolve();
+                            return;
+                        }
+                        ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        requestAnimationFrame(drawFrame);
+                    };
+                    drawFrame();
+                });
+
+                const blob = await done;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `clip-${report.id}.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } else {
+                // GIF: capture frames and create animated GIF using canvas
+                const frames: string[] = [];
+                const fps = 10;
+                const frameInterval = 1 / fps;
+                let t = start;
+
+                while (t < end) {
+                    video.currentTime = t;
+                    await new Promise<void>((r) => { video.onseeked = () => r(); });
+                    ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    frames.push(canvas.toDataURL("image/png"));
+                    t += frameInterval;
+                }
+
+                // True GIF encoding requires a library — export as WebM instead
+                // with frame-by-frame rendering for the selected range
+                const gifCanvas = document.createElement("canvas");
+                gifCanvas.width = canvas.width;
+                gifCanvas.height = canvas.height;
+                const gifCtx = gifCanvas.getContext("2d")!;
+                const gifStream = gifCanvas.captureStream(fps);
+                const gifRecorder = new MediaRecorder(gifStream, { mimeType: "video/webm" });
+                const gifChunks: BlobPart[] = [];
+                gifRecorder.ondataavailable = (e) => gifChunks.push(e.data);
+
+                const gifDone = new Promise<Blob>((resolve) => {
+                    gifRecorder.onstop = () => resolve(new Blob(gifChunks, { type: "video/webm" }));
+                });
+
+                gifRecorder.start();
+                for (const frame of frames) {
+                    const img = new Image();
+                    img.src = frame;
+                    await new Promise<void>((r) => { img.onload = () => r(); });
+                    gifCtx.drawImage(img, 0, 0);
+                    await new Promise<void>((r) => setTimeout(r, 1000 / fps));
+                }
+                gifRecorder.stop();
+
+                const gifBlob = await gifDone;
+                const gifUrl = URL.createObjectURL(gifBlob);
+                const gifLink = document.createElement("a");
+                gifLink.href = gifUrl;
+                gifLink.download = `clip-${report.id}.webm`;
+                gifLink.click();
+                URL.revokeObjectURL(gifUrl);
+
+                setClipMessage(`Exported ${frames.length} frames as WebM clip. Native GIF encoding is not supported — the clip was saved as a WebM file instead.`);
+            }
+
+            setShowClipExport(false);
+        } catch (err) {
+            console.error("Clip export failed:", err);
+        } finally {
+            setClipExporting(false);
+        }
+    }, [report, clipRange, clipExporting]);
+
+    // Handle OCR extraction from current frame (context-based, no canvas needed)
+    const handleOCR = useCallback(async () => {
+        if (!report || ocrLoading) return;
+        setOcrLoading(true);
+        setShowOCR(true);
+        try {
+            const res = await fetch("/api/ai/ocr", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    reportId: report.id,
+                    timestamp: videoCurrentTime,
+                }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setOcrText(data.text || "No text detected");
+            } else {
+                setOcrText("OCR extraction failed");
+            }
+        } catch (err) {
+            console.error("OCR failed:", err);
+            setOcrText("OCR extraction failed");
+        } finally {
+            setOcrLoading(false);
+        }
+    }, [report, ocrLoading, videoCurrentTime]);
 
     useEffect(() => {
         async function fetchReport() {
@@ -708,7 +1076,10 @@ export default function ReportPage() {
     };
 
     const handleCopyLink = async () => {
-        await navigator.clipboard.writeText(window.location.href);
+        const base = window.location.origin + window.location.pathname;
+        const t = Math.floor(videoCurrentTime);
+        const url = t > 0 ? `${base}?t=${t}` : base;
+        await navigator.clipboard.writeText(url);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -913,6 +1284,61 @@ export default function ReportPage() {
                                     <TooltipContent>Copy image to clipboard</TooltipContent>
                                 </Tooltip>
                             )}
+                            {report.type !== 'SCREENSHOT' && report.videoUrl && (
+                                <>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const dur = videoDurationRef.current || 30;
+                                                    setClipRange([Math.max(0, videoCurrentTime - 2), Math.min(dur, videoCurrentTime + 5)]);
+                                                    setShowClipExport(true);
+                                                }}
+                                                className="gap-1.5"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                                <span className="hidden sm:inline">Clip</span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Export video clip</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    const dur = videoDurationRef.current || 30;
+                                                    setTrimRange([0, dur]);
+                                                    setShowTrimmer(true);
+                                                }}
+                                                className="gap-1.5"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" /></svg>
+                                                <span className="hidden sm:inline">Trim</span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Trim video</TooltipContent>
+                                    </Tooltip>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={handleOCR}
+                                                disabled={ocrLoading}
+                                                className="gap-1.5"
+                                            >
+                                                {ocrLoading ? Icons.spinner : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                                                <span className="hidden sm:inline">OCR</span>
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Extract text from current frame</TooltipContent>
+                                    </Tooltip>
+                                </>
+                            )}
                             <Button
                                 size="sm"
                                 variant="outline"
@@ -939,12 +1365,44 @@ export default function ReportPage() {
                                 />
                             </div>
                         ) : report.videoUrl ? (
-                            <VideoPlayer
-                                src={report.videoUrl}
-                                commentMarkers={commentMarkers}
-                                onTimeUpdate={setVideoCurrentTime}
-                                onSeekTo={seekToRef}
-                            />
+                            <div className="relative">
+                                <div className="relative">
+                                    <VideoPlayer
+                                        src={report.videoUrl}
+                                        commentMarkers={commentMarkers}
+                                        errorTimestamps={errorTimestamps}
+                                        highlightRegion={highlightRegion}
+                                        chapters={chapters}
+                                        initialTime={initialTime}
+                                        onTimeUpdate={setVideoCurrentTime}
+                                        onSeekTo={seekToRef}
+                                        onDurationReady={(dur) => {
+                                            videoDurationRef.current = dur;
+                                            generateChapters();
+                                        }}
+                                    />
+                                    <VideoAnnotationOverlay
+                                        annotations={videoAnnotations}
+                                        currentTime={videoCurrentTime}
+                                        onAddAnnotation={(a) => setVideoAnnotations(prev => [...prev, a])}
+                                        onDeleteAnnotation={(id) => setVideoAnnotations(prev => prev.filter(a => a.id !== id))}
+                                        isEditing={annotationEditing}
+                                        activeTool={annotationTool}
+                                        activeColor={annotationColor}
+                                    />
+                                </div>
+                                <div className="px-4 py-2 border-t bg-muted/30">
+                                    <AnnotationToolbar
+                                        isEditing={annotationEditing}
+                                        onToggleEditing={() => { setAnnotationEditing(!annotationEditing); if (annotationEditing) setAnnotationTool(null); }}
+                                        activeTool={annotationTool}
+                                        onSetTool={setAnnotationTool}
+                                        activeColor={annotationColor}
+                                        onSetColor={setAnnotationColor}
+                                        annotationCount={videoAnnotations.length}
+                                    />
+                                </div>
+                            </div>
                         ) : null}
                     </div>
 
@@ -1173,6 +1631,229 @@ export default function ReportPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* ── Clip Info Dialog ────────────────────────────── */}
+            <AlertDialog open={!!clipMessage} onOpenChange={(open) => { if (!open) setClipMessage(null); }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Clip Exported</AlertDialogTitle>
+                        <AlertDialogDescription>{clipMessage}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={() => setClipMessage(null)}>OK</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* ── Clip Export Modal ─────────────────────────── */}
+            {showClipExport && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowClipExport(false)}>
+                    <div className="bg-background rounded-xl border shadow-2xl p-6 w-full max-w-md mx-4 space-y-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">Export Clip</h3>
+                            <button onClick={() => setShowClipExport(false)} className="text-muted-foreground hover:text-foreground">
+                                {Icons.close}
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-sm font-medium">Start Time (seconds)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min={0}
+                                    max={clipRange[1]}
+                                    value={clipRange[0].toFixed(1)}
+                                    onChange={e => setClipRange([parseFloat(e.target.value) || 0, clipRange[1]])}
+                                    className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">End Time (seconds)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min={clipRange[0]}
+                                    max={videoDurationRef.current}
+                                    value={clipRange[1].toFixed(1)}
+                                    onChange={e => setClipRange([clipRange[0], parseFloat(e.target.value) || 0])}
+                                    className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                                Duration: {(clipRange[1] - clipRange[0]).toFixed(1)}s
+                            </div>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                className="flex-1"
+                                disabled={clipExporting}
+                                onClick={() => handleClipExport("webm")}
+                            >
+                                {clipExporting ? Icons.spinner : null}
+                                Export WebM
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                disabled={clipExporting}
+                                onClick={() => handleClipExport("gif")}
+                            >
+                                {clipExporting ? Icons.spinner : null}
+                                Export GIF
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Trim Modal ───────────────────────────────── */}
+            {showTrimmer && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowTrimmer(false)}>
+                    <div className="bg-background rounded-xl border shadow-2xl p-6 w-full max-w-md mx-4 space-y-4" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">Trim Video</h3>
+                            <button onClick={() => setShowTrimmer(false)} className="text-muted-foreground hover:text-foreground">
+                                {Icons.close}
+                            </button>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                            Select the portion of the video you want to keep. The trimmed video will be downloaded.
+                        </p>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="text-sm font-medium">Keep From (seconds)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min={0}
+                                    max={trimRange[1]}
+                                    value={trimRange[0].toFixed(1)}
+                                    onChange={e => setTrimRange([parseFloat(e.target.value) || 0, trimRange[1]])}
+                                    className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-sm font-medium">Keep Until (seconds)</label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min={trimRange[0]}
+                                    max={videoDurationRef.current}
+                                    value={trimRange[1].toFixed(1)}
+                                    onChange={e => setTrimRange([trimRange[0], parseFloat(e.target.value) || 0])}
+                                    className="w-full mt-1 rounded-md border bg-background px-3 py-2 text-sm"
+                                />
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                                Trimmed duration: {(trimRange[1] - trimRange[0]).toFixed(1)}s (original: {videoDurationRef.current.toFixed(1)}s)
+                            </div>
+                        </div>
+                        <Button
+                            className="w-full"
+                            disabled={trimming}
+                            onClick={async () => {
+                                if (!report?.videoUrl) return;
+                                setTrimming(true);
+                                try {
+                                    const video = document.createElement("video");
+                                    video.crossOrigin = "anonymous";
+                                    video.src = report.videoUrl;
+                                    video.muted = true;
+                                    await new Promise<void>((r) => { video.onloadeddata = () => r(); video.load(); });
+
+                                    const canvas = document.createElement("canvas");
+                                    canvas.width = video.videoWidth || 640;
+                                    canvas.height = video.videoHeight || 360;
+                                    const ctx2d = canvas.getContext("2d")!;
+                                    const stream = canvas.captureStream(30);
+                                    const recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+                                    const chunks: BlobPart[] = [];
+                                    recorder.ondataavailable = (e) => chunks.push(e.data);
+
+                                    const done = new Promise<Blob>((resolve) => {
+                                        recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+                                    });
+
+                                    video.currentTime = trimRange[0];
+                                    await new Promise<void>((r) => { video.onseeked = () => r(); });
+                                    recorder.start();
+                                    video.play();
+
+                                    await new Promise<void>((resolve) => {
+                                        const drawFrame = () => {
+                                            if (video.currentTime >= trimRange[1]) {
+                                                video.pause();
+                                                recorder.stop();
+                                                resolve();
+                                                return;
+                                            }
+                                            ctx2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                            requestAnimationFrame(drawFrame);
+                                        };
+                                        drawFrame();
+                                    });
+
+                                    const blob = await done;
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement("a");
+                                    a.href = url;
+                                    a.download = `trimmed-${report.id}.webm`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                    setShowTrimmer(false);
+                                } catch (err) {
+                                    console.error("Trim failed:", err);
+                                } finally {
+                                    setTrimming(false);
+                                }
+                            }}
+                        >
+                            {trimming ? Icons.spinner : null}
+                            {trimming ? "Trimming..." : "Trim & Download"}
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* ── OCR Results Modal ────────────────────────── */}
+            {showOCR && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setShowOCR(false)}>
+                    <div className="bg-background rounded-xl border shadow-2xl p-6 w-full max-w-lg mx-4 space-y-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">Screen Text (OCR)</h3>
+                            <button onClick={() => setShowOCR(false)} className="text-muted-foreground hover:text-foreground">
+                                {Icons.close}
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Text extracted at {videoCurrentTime.toFixed(1)}s
+                        </p>
+                        {ocrLoading ? (
+                            <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                                {Icons.spinner}
+                                <span>Extracting text...</span>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <pre className="text-sm whitespace-pre-wrap bg-muted/50 rounded-lg p-4 border">
+                                    {ocrText}
+                                </pre>
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={async () => {
+                                        await navigator.clipboard.writeText(ocrText);
+                                    }}
+                                >
+                                    Copy Text
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </TooltipProvider>
     );
 }
