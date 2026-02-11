@@ -23,6 +23,9 @@ const registerSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Please enter a valid email"),
     password: z.string().min(6, "Password must be at least 6 characters"),
+    agreedToTerms: z.boolean().refine((val) => val === true, {
+        message: "You must agree to the Privacy Policy and Terms of Service",
+    }),
 });
 
 type RegisterValues = z.infer<typeof registerSchema>;
@@ -136,7 +139,7 @@ export default function RegisterPage() {
 
     const form = useForm<RegisterValues>({
         resolver: zodResolver(registerSchema),
-        defaultValues: { name: "", email: "", password: "" },
+        defaultValues: { name: "", email: "", password: "", agreedToTerms: false },
     });
 
     function onSubmit(values: RegisterValues) {
@@ -255,6 +258,39 @@ export default function RegisterPage() {
                                                     </div>
                                                 </FormControl>
                                                 <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="agreedToTerms"
+                                        render={({ field }) => (
+                                            <FormItem className="flex items-start gap-3 space-y-0">
+                                                <FormControl>
+                                                    <div className="mt-1">
+                                                        <input
+                                                            type="checkbox"
+                                                            id="agreedToTerms"
+                                                            checked={field.value}
+                                                            onChange={field.onChange}
+                                                            className="h-4 w-4 rounded border border-border/50 bg-background/50 accent-primary cursor-pointer transition-all duration-200"
+                                                        />
+                                                    </div>
+                                                </FormControl>
+                                                <div className="flex-1 pt-1">
+                                                    <label htmlFor="agreedToTerms" className="text-xs text-muted-foreground cursor-pointer">
+                                                        I agree to the{" "}
+                                                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">
+                                                            Privacy Policy
+                                                        </a>
+                                                        {" "}and{" "}
+                                                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">
+                                                            Terms of Service
+                                                        </a>
+                                                    </label>
+                                                    <FormMessage className="mt-1" />
+                                                </div>
                                             </FormItem>
                                         )}
                                     />
