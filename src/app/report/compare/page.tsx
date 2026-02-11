@@ -3,6 +3,7 @@ import { Suspense, useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import pLimit from "p-limit";
 
 interface CompareReport {
     id: string;
@@ -32,13 +33,14 @@ function ComparePageInner() {
     useEffect(() => {
         async function fetchReports() {
             try {
+                const limit = pLimit(3); // Limit concurrent requests
                 const results = await Promise.all(
-                    reportIds.map(async (id) => {
+                    reportIds.map((id) => limit(async () => {
                         const res = await fetch(`/api/report?id=${id}`);
                         if (!res.ok) return null;
                         const data = await res.json();
                         return { id: data.id, title: data.title, videoUrl: data.videoUrl } as CompareReport;
-                    })
+                    }))
                 );
                 setReports(results.filter((r): r is CompareReport => r !== null && !!r.videoUrl));
             } catch {

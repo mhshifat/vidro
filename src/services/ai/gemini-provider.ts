@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIProvider, VideoAnalysisResult } from "./ai-provider";
+import { Logger } from "@/lib/logger";
 
 const SYSTEM_PROMPT = `You are a video analysis assistant for a bug reporting tool called Vidro.
 Given a screen recording, produce:
@@ -83,7 +84,8 @@ export class GeminiProvider implements AIProvider {
                         transcript: parsed.transcript || "",
                     };
                 } catch {
-                    console.error("Gemini returned non-JSON response:", text);
+                    const ctx = Logger.createContext();
+                    Logger.warn("Gemini returned non-JSON response", ctx, { response: text.slice(0, 500), provider: "Gemini" });
                     return {
                         title: "Untitled Recording",
                         description: "",
@@ -105,7 +107,8 @@ export class GeminiProvider implements AIProvider {
                     const delayMs = retryMatch
                         ? Math.ceil(parseFloat(retryMatch[1]) * 1000)
                         : BASE_DELAY_MS * Math.pow(2, attempt);
-                    console.warn(`[Gemini] Rate limited. Retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+                    const ctx = Logger.createContext();
+                    Logger.warn("Rate limited, retrying", ctx, { delayMs, attempt: attempt + 1, maxRetries: MAX_RETRIES, provider: "Gemini" });
                     await new Promise(resolve => setTimeout(resolve, delayMs));
                     continue;
                 }

@@ -112,11 +112,11 @@ export async function POST(req: Request) {
         let result: { url: string; key: string };
         try {
             result = await provider.upload(buffer, key, file.type || (isImage ? "image/png" : "video/webm"));
-        } catch (uploadErr: any) {
+        } catch (uploadErr) {
             console.error("Storage provider upload failed:", uploadErr);
 
             // Map Cloudinary specific errors to user-friendly messages
-            const msg = uploadErr?.message || "";
+            const msg = (uploadErr as Error)?.message || "";
             if (msg.includes("File size too large")) {
                 return NextResponse.json(
                     { error: "File rejected by storage provider — too large.", code: "PROVIDER_SIZE_LIMIT" },
@@ -149,7 +149,7 @@ export async function POST(req: Request) {
             fileSize: buffer.byteLength,
             isImage,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Upload failed:", error);
         return NextResponse.json(
             { error: "An unexpected error occurred. Please try again." },

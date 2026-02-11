@@ -29,129 +29,10 @@ import {
 import { CommentsSection, type Comment, type CommentMarker, getCommentMarkers, fmtTimestamp as fmtCommentTs } from "@/components/shared/comments";
 import { AIInsightsPanel, type AIInsightsData } from "@/components/shared/ai-insights";
 import { VideoAnnotationOverlay, AnnotationToolbar, type VideoAnnotation } from "@/components/shared/video-annotations";
+import { ReportIcons } from "@/components/icons/report-icons";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
-const Icons = {
-    play: (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="size-5 ml-0.5">
-            <path d="M8 5.14v14l11-7-11-7z" />
-        </svg>
-    ),
-    pause: (
-        <svg viewBox="0 0 24 24" fill="currentColor" className="size-5">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-        </svg>
-    ),
-    volumeHigh: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" />
-        </svg>
-    ),
-    volumeMuted: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
-        </svg>
-    ),
-    maximize: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3" />
-        </svg>
-    ),
-    minimize: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-        </svg>
-    ),
-    pip: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2 5a2 2 0 012-2h16a2 2 0 012 2v14a2 2 0 01-2 2H4a2 2 0 01-2-2V5z" />
-            <rect x="12" y="11" width="8" height="6" rx="1" fill="currentColor" opacity="0.3" stroke="currentColor" strokeWidth={1.5} />
-        </svg>
-    ),
-    skipBack: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0019 16V8a1 1 0 00-1.6-.8l-5.333 4zM4.066 11.2a1 1 0 000 1.6l5.334 4A1 1 0 0011 16V8a1 1 0 00-1.6-.8l-5.334 4z" />
-        </svg>
-    ),
-    skipForward: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.933 12.8a1 1 0 000-1.6L6.6 7.2A1 1 0 005 8v8a1 1 0 001.6.8l5.333-4zM19.933 12.8a1 1 0 000-1.6l-5.333-4A1 1 0 0013 8v8a1 1 0 001.6.8l5.333-4z" />
-        </svg>
-    ),
-    chevronLeft: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-    ),
-    console: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-    ),
-    network: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-    ),
-    clock: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-    ),
-    link: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-        </svg>
-    ),
-    inbox: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="size-8">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-        </svg>
-    ),
-    check: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-    ),
-    edit: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-    ),
-    close: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-    ),
-    spinner: (
-        <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-    ),
-    transcript: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-    ),
-    sparkles: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-        </svg>
-    ),
-    download: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
-        </svg>
-    ),
-    copy: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-        </svg>
-    ),
-};
+const Icons = ReportIcons;
 
 /* ─── Types ────────────────────────────────────────────────────── */
 interface ConsoleLogEntry {
@@ -745,12 +626,12 @@ function VideoPlayer({
                     {/* Bottom controls */}
                     <div className="flex items-center justify-between gap-2 text-white">
                         <div className="flex items-center gap-1">
-                            <button onClick={(e) => { e.stopPropagation(); skip(-10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Rewind 10s" aria-label="Skip back 10 seconds">{Icons.skipBack}</button>
-                            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="flex size-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm transition-all hover:bg-white/20 hover:scale-105 active:scale-95" aria-label={playing ? "Pause" : "Play"}>{playing ? Icons.pause : Icons.play}</button>
-                            <button onClick={(e) => { e.stopPropagation(); skip(10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Forward 10s" aria-label="Skip forward 10 seconds">{Icons.skipForward}</button>
+                            <button onClick={(e) => { e.stopPropagation(); skip(-10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Rewind 10s" aria-label="Skip back 10 seconds">{Icons.skipBack()}</button>
+                            <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="flex size-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm transition-all hover:bg-white/20 hover:scale-105 active:scale-95" aria-label={playing ? "Pause" : "Play"}>{playing ? Icons.pause() : Icons.play()}</button>
+                            <button onClick={(e) => { e.stopPropagation(); skip(10); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10 active:bg-white/20" title="Forward 10s" aria-label="Skip forward 10 seconds">{Icons.skipForward()}</button>
 
                             <div className="group/vol flex items-center gap-1 ml-1">
-                                <button onClick={(e) => { e.stopPropagation(); setMuted(!muted); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" aria-label={muted ? "Unmute" : "Mute"}>{muted || volume === 0 ? Icons.volumeMuted : Icons.volumeHigh}</button>
+                                <button onClick={(e) => { e.stopPropagation(); setMuted(!muted); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" aria-label={muted ? "Unmute" : "Mute"}>{muted || volume === 0 ? Icons.volumeMuted() : Icons.volumeHigh()}</button>
                                 <div className="w-0 overflow-hidden group-hover/vol:w-20 transition-all duration-300">
                                     <Slider
                                         value={[muted ? 0 : volume * 100]}
@@ -770,8 +651,8 @@ function VideoPlayer({
 
                         <div className="flex items-center gap-0.5">
                             <button onClick={(e) => { e.stopPropagation(); cycleSpeed(); }} className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-bold tabular-nums transition-colors hover:bg-white/10" title="Playback speed" aria-label={`Playback speed ${speed}x`}>{speed}x</button>
-                            <button onClick={(e) => { e.stopPropagation(); togglePip(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title="Picture-in-Picture" aria-label="Picture in picture">{Icons.pip}</button>
-                            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} aria-label="Toggle fullscreen">{isFullscreen ? Icons.minimize : Icons.maximize}</button>
+                            <button onClick={(e) => { e.stopPropagation(); togglePip(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title="Picture-in-Picture" aria-label="Picture in picture">{Icons.pip()}</button>
+                            <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-white/10" title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} aria-label="Toggle fullscreen">{isFullscreen ? Icons.minimize() : Icons.maximize()}</button>
                         </div>
                     </div>
                 </div>
@@ -1286,7 +1167,7 @@ export default function ReportPage() {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="flex flex-col items-center gap-6 animate-in fade-in duration-500">
-                    <span className="opacity-30">{Icons.inbox}</span>
+                    <span className="opacity-30">{Icons.inbox()}</span>
                     <div className="text-center space-y-2">
                         <h2 className="text-lg font-bold tracking-tight">Report Not Found</h2>
                         <p className="text-sm text-muted-foreground max-w-xs">
@@ -1320,7 +1201,7 @@ export default function ReportPage() {
                                         href="/dashboard"
                                         className="flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                                     >
-                                        {Icons.chevronLeft}
+                                        {Icons.chevronLeft()}
                                     </Link>
                                 </TooltipTrigger>
                                 <TooltipContent>Back to Dashboard</TooltipContent>
@@ -1341,7 +1222,7 @@ export default function ReportPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                             <Badge variant="secondary" className="text-[11px] font-mono tabular-nums gap-1.5 hidden sm:inline-flex">
-                                {Icons.clock}
+                                {Icons.clock()}
                                 {new Date(report.createdAt).toLocaleDateString("en-US", {
                                     month: "short", day: "numeric", year: "numeric",
                                 })}
@@ -1357,7 +1238,7 @@ export default function ReportPage() {
                                                 disabled={generating}
                                                 className="gap-1.5 transition-all"
                                             >
-                                                {generating ? Icons.spinner : Icons.sparkles}
+                                                {generating ? Icons.spinner() : Icons.sparkles()}
                                                 {generating ? 'Generating...' : 'Generate'}
                                             </Button>
                                         </TooltipTrigger>
@@ -1369,7 +1250,7 @@ export default function ReportPage() {
                                         onClick={handleStartEditing}
                                         className="gap-1.5 transition-all"
                                     >
-                                        {Icons.edit}
+                                        {Icons.edit()}
                                         Edit
                                     </Button>
                                 </>
@@ -1383,7 +1264,7 @@ export default function ReportPage() {
                                         disabled={saving}
                                         className="gap-1.5"
                                     >
-                                        {Icons.close}
+                                        {Icons.close()}
                                         Cancel
                                     </Button>
                                     <Button
@@ -1392,7 +1273,7 @@ export default function ReportPage() {
                                         disabled={saving}
                                         className="gap-1.5"
                                     >
-                                        {saving ? Icons.spinner : Icons.check}
+                                        {saving ? Icons.spinner() : Icons.check()}
                                         {saving ? "Saving..." : "Save"}
                                     </Button>
                                 </>
@@ -1405,7 +1286,7 @@ export default function ReportPage() {
                                         onClick={handleDownload}
                                         className="gap-1.5"
                                     >
-                                        {Icons.download}
+                                        {Icons.download()}
                                         <span className="hidden sm:inline">Download</span>
                                     </Button>
                                 </TooltipTrigger>
@@ -1432,7 +1313,7 @@ export default function ReportPage() {
                                                 }
                                             }}
                                         >
-                                            {copiedImage ? Icons.check : Icons.copy}
+                                            {copiedImage ? Icons.check() : Icons.copy()}
                                             {copiedImage ? 'Copied!' : 'Copy Image'}
                                         </Button>
                                     </TooltipTrigger>
@@ -1486,7 +1367,7 @@ export default function ReportPage() {
                                                 disabled={ocrLoading}
                                                 className="gap-1.5"
                                             >
-                                                {ocrLoading ? Icons.spinner : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                                                {ocrLoading ? Icons.spinner() : <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
                                                 <span className="hidden sm:inline">OCR</span>
                                             </Button>
                                         </TooltipTrigger>
@@ -1500,7 +1381,7 @@ export default function ReportPage() {
                                 onClick={handleCopyLink}
                                 className="gap-1.5 transition-all"
                             >
-                                {copied ? Icons.check : Icons.link}
+                                {copied ? Icons.check() : Icons.link()}
                                 {copied ? "Copied!" : "Copy Link"}
                             </Button>
                         </div>
@@ -1576,7 +1457,7 @@ export default function ReportPage() {
                             className="lg:col-span-3"
                             label="Console Events"
                             value={consoleLogs.length}
-                            icon={Icons.console}
+                            icon={Icons.console()}
                             detail={
                                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
                                     {consoleErrors > 0 && <Badge variant="destructive" className="text-[10px] h-5 px-1.5">{consoleErrors} errors</Badge>}
@@ -1589,7 +1470,7 @@ export default function ReportPage() {
                             className="lg:col-span-3"
                             label="Network Requests"
                             value={networkLogs.length}
-                            icon={Icons.network}
+                            icon={Icons.network()}
                             detail={
                                 <div className="flex gap-1.5 mt-1.5">
                                     {failedRequests > 0
@@ -1602,7 +1483,7 @@ export default function ReportPage() {
                         <Card className="lg:col-span-3 py-4 group transition-shadow hover:shadow-md">
                             <CardContent className="flex items-center gap-3 py-0">
                                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-                                    {Icons.clock}
+                                    {Icons.clock()}
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Recorded</p>
@@ -1674,18 +1555,18 @@ export default function ReportPage() {
                                         <Separator orientation="vertical" className="h-4" />
                                         <TabsList variant="line" className="h-8">
                                             <TabsTrigger value="console" className="text-xs gap-1.5 px-3">
-                                                {Icons.console}
+                                                {Icons.console()}
                                                 Console
                                                 <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{consoleLogs.length}</Badge>
                                             </TabsTrigger>
                                             <TabsTrigger value="network" className="text-xs gap-1.5 px-3">
-                                                {Icons.network}
+                                                {Icons.network()}
                                                 Network
                                                 <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{networkLogs.length}</Badge>
                                             </TabsTrigger>
                                             {report.transcript && (
                                                 <TabsTrigger value="transcript" className="text-xs gap-1.5 px-3">
-                                                    {Icons.transcript}
+                                                    {Icons.transcript()}
                                                     Transcript
                                                 </TabsTrigger>
                                             )}
@@ -1815,7 +1696,7 @@ export default function ReportPage() {
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold">Export Clip</h3>
                             <button onClick={() => setShowClipExport(false)} className="text-muted-foreground hover:text-foreground">
-                                {Icons.close}
+                                {Icons.close()}
                             </button>
                         </div>
                         <div className="space-y-3">
@@ -1853,7 +1734,7 @@ export default function ReportPage() {
                                 disabled={clipExporting}
                                 onClick={() => handleClipExport("webm")}
                             >
-                                {clipExporting ? Icons.spinner : null}
+                                {clipExporting ? Icons.spinner() : null}
                                 Export WebM
                             </Button>
                             <Button
@@ -1862,7 +1743,7 @@ export default function ReportPage() {
                                 disabled={clipExporting}
                                 onClick={() => handleClipExport("gif")}
                             >
-                                {clipExporting ? Icons.spinner : null}
+                                {clipExporting ? Icons.spinner() : null}
                                 Export GIF
                             </Button>
                         </div>
@@ -1877,7 +1758,7 @@ export default function ReportPage() {
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold">Trim Video</h3>
                             <button onClick={() => setShowTrimmer(false)} className="text-muted-foreground hover:text-foreground">
-                                {Icons.close}
+                                {Icons.close()}
                             </button>
                         </div>
                         <p className="text-sm text-muted-foreground">
@@ -1972,7 +1853,7 @@ export default function ReportPage() {
                                 }
                             }}
                         >
-                            {trimming ? Icons.spinner : null}
+                            {trimming ? Icons.spinner() : null}
                             {trimming ? "Trimming..." : "Trim & Download"}
                         </Button>
                     </div>
@@ -1986,7 +1867,7 @@ export default function ReportPage() {
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold">Screen Text (OCR)</h3>
                             <button onClick={() => setShowOCR(false)} className="text-muted-foreground hover:text-foreground">
-                                {Icons.close}
+                                {Icons.close()}
                             </button>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -1994,7 +1875,7 @@ export default function ReportPage() {
                         </p>
                         {ocrLoading ? (
                             <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-                                {Icons.spinner}
+                                {Icons.spinner()}
                                 <span>Extracting text...</span>
                             </div>
                         ) : (
@@ -2050,7 +1931,7 @@ function StatCard({ label, value, icon, detail, className }: {
 function EmptyState({ message }: { message: string }) {
     return (
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-            <span className="opacity-30">{Icons.inbox}</span>
+            <span className="opacity-30">{Icons.inbox()}</span>
             <p className="text-sm">{message}</p>
         </div>
     );

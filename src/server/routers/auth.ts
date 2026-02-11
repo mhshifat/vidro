@@ -4,11 +4,12 @@ import { AuthService } from "@/services/auth-service";
 import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
+import { SanitizedUser, User } from "@/entities/user";
 
 const authService = new AuthService();
 
-function sanitizeUser(user: any) {
-    const { password, storageUsed, storageLimit, youtubeAccessToken, youtubeRefreshToken, youtubeTokenExpiry, ...rest } = user;
+function sanitizeUser(user: User): SanitizedUser {
+    const { password, storageUsed, storageLimit, youtubeAccessToken, youtubeRefreshToken, youtubeTokenExpiry, emailVerificationToken, ...rest } = user;
     return {
         ...rest,
         storageUsed: storageUsed != null ? Number(storageUsed) : 0,

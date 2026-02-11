@@ -21,6 +21,7 @@ import type {
     VideoHighlightResult,
     VisualDiffResult,
 } from "./ai-provider";
+import { ConsoleLog, NetworkLog } from "@/types/logs";
 
 const MAX_RETRIES = 2;
 const BASE_DELAY_MS = 3000;
@@ -52,18 +53,16 @@ export class AIInsightsService {
         if (ctx.description) parts.push(`**Description:** ${ctx.description}`);
         if (ctx.transcript) parts.push(`**Transcript:**\n${ctx.transcript}`);
         if (ctx.consoleLogs?.length) {
-            const logs = ctx.consoleLogs
+            const logs = (ctx.consoleLogs as ConsoleLog[])
                 .slice(0, 50) // cap to avoid token overflow
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((l: any) => `[${l.type}] ${l.args?.map((a: any) => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}`)
+                .map((l) => `[${(l as ConsoleLog).type}] ${(l as ConsoleLog).args?.map((a) => typeof a === "string" ? a : JSON.stringify(a)).join(" ")}`)
                 .join("\n");
             parts.push(`**Console Logs (${ctx.consoleLogs.length} total):**\n${logs}`);
         }
         if (ctx.networkLogs?.length) {
-            const logs = ctx.networkLogs
+            const logs = (ctx.networkLogs as NetworkLog[])
                 .slice(0, 50)
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((l: any) => `${l.method} ${l.url} → ${l.status}`)
+                .map((l: NetworkLog) => `${l.method} ${l.url} → ${l.status}`)
                 .join("\n");
             parts.push(`**Network Logs (${ctx.networkLogs.length} total):**\n${logs}`);
         }
@@ -84,14 +83,21 @@ export class AIInsightsService {
                     temperature: 0.3,
                 });
                 return response.choices[0]?.message?.content?.trim() ?? "";
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            } catch (err: any) {
-                lastError = err;
-                if (err?.status === 429 && attempt < MAX_RETRIES) {
+            } catch (err: unknown) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                // Type-safe check for rate limit errors (status 429)
+                const isRateLimitError = 
+                    err !== null &&
+                    typeof err === 'object' &&
+                    'status' in err &&
+                    err.status === 429;
+                
+                lastError = error;
+                if (isRateLimitError && attempt < MAX_RETRIES) {
                     await new Promise(r => setTimeout(r, BASE_DELAY_MS * (attempt + 1)));
                     continue;
                 }
-                throw err;
+                throw error;
             }
         }
         throw lastError;

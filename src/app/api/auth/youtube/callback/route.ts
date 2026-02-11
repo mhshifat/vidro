@@ -23,7 +23,11 @@ export async function GET(req: NextRequest) {
 
     const youtube = new YoutubeStorage();
     try {
-        const tokens = await youtube.handleCallback(code) as any;
+        const tokens = await youtube.handleCallback(code) as {
+            access_token: string;
+            refresh_token: string;
+            expiry_date?: number;
+        };
 
         // Save tokens to user
         await prisma.user.update({

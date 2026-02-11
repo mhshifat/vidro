@@ -17,6 +17,7 @@ import { trpc } from "@/trpc/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { AuthIcons } from "@/components/icons/auth-icons";
 
 /* ─── Zod Schema ──────────────────────────────────────────────── */
 const registerSchema = z.object({
@@ -31,52 +32,14 @@ const registerSchema = z.object({
 type RegisterValues = z.infer<typeof registerSchema>;
 
 /* ─── SVG Icons ───────────────────────────────────────────────── */
-const Icons = {
-    bug: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-6">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 12m-3 0a3 3 0 106 0 3 3 0 10-6 0M3 12h3m12 0h3M12 3v3m0 12v3M5.636 5.636l2.121 2.121m8.486 8.486l2.121 2.121M5.636 18.364l2.121-2.121m8.486-8.486l2.121-2.121" />
-        </svg>
-    ),
-    arrowRight: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-        </svg>
-    ),
-    spinner: (
-        <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-    ),
-    eye: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </svg>
-    ),
-    eyeOff: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-        </svg>
-    ),
-    check: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-3.5 text-emerald-500">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-        </svg>
-    ),
-    user: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4 text-muted-foreground/60">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-        </svg>
-    ),
-};
+const Icons = AuthIcons;
 
 /* ─── Benefit Item ────────────────────────────────────────────── */
 function BenefitItem({ text }: { text: string }) {
     return (
         <div className="flex items-center gap-2.5">
             <div className="flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10">
-                {Icons.check}
+                {Icons.check()}
             </div>
             <span className="text-xs text-muted-foreground">{text}</span>
         </div>
@@ -109,7 +72,7 @@ function TestimonialCard({
                 <p className="text-sm leading-relaxed text-foreground/80">{quote}</p>
                 <div className="flex items-center gap-2.5 pt-1">
                     <div className="flex size-7 items-center justify-center rounded-full bg-primary/6">
-                        {Icons.user}
+                        {Icons.user()}
                     </div>
                     <div>
                         <p className="text-xs font-semibold">{name}</p>
@@ -125,14 +88,14 @@ function TestimonialCard({
 /*  Register Page                                                  */
 /* ──────────────────────────────────────────────────────────────── */
 export default function RegisterPage() {
-    const router = useRouter();
+    // const router = useRouter();
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [emailSent, setEmailSent] = useState(false);
     const [registeredEmail, setRegisteredEmail] = useState("");
 
     const registerMutation = trpc.auth.register.useMutation({
-        onSuccess: (data) => {
+        onSuccess: () => {
             setEmailSent(true);
             // Extract email from form
             const email = form.getValues("email");
@@ -227,7 +190,7 @@ export default function RegisterPage() {
                             {/* Mobile brand */}
                             <div className="mb-8 flex items-center gap-3 lg:hidden">
                                 <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
-                                    {Icons.bug}
+                                    {Icons.bug()}
                                 </div>
                                 <span className="text-lg font-black tracking-tight">Vidro</span>
                             </div>
@@ -322,7 +285,7 @@ export default function RegisterPage() {
                                                             onClick={() => setShowPassword(!showPassword)}
                                                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 transition-colors hover:text-muted-foreground"
                                                         >
-                                                            {showPassword ? Icons.eyeOff : Icons.eye}
+                                                            {showPassword ? Icons.eyeOff() : Icons.eye()}
                                                         </button>
                                                     </div>
                                                 </FormControl>
@@ -371,14 +334,14 @@ export default function RegisterPage() {
                                     >
                                         {registerMutation.isPending ? (
                                             <span className="flex items-center gap-2">
-                                                {Icons.spinner}
+                                                {Icons.spinner()}
                                                 Creating account…
                                             </span>
                                         ) : (
                                             <span className="flex items-center gap-2">
                                                 Create account
                                                 <span className="transition-transform duration-300 group-hover:translate-x-1">
-                                                    {Icons.arrowRight}
+                                                    {Icons.arrowRight()}
                                                 </span>
                                             </span>
                                         )}
@@ -412,7 +375,7 @@ export default function RegisterPage() {
                         <div className="rounded-2xl border border-border/50 bg-card/50 p-6 backdrop-blur-sm animate-in fade-in slide-in-from-right-4 duration-500">
                             <div className="flex items-center gap-3">
                                 <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
-                                    {Icons.bug}
+                                    {Icons.bug()}
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-black tracking-tight">Vidro</h2>

@@ -21,3 +21,15 @@ export type User = {
     youtubeRefreshToken?: string | null;
     youtubeTokenExpiry?: Date | null;
 };
+
+/**
+ * Sanitized user object for API responses
+ * Excludes sensitive fields like passwords and tokens
+ */
+export type SanitizedUser = Omit<
+    User,
+    "password" | "youtubeAccessToken" | "youtubeRefreshToken" | "emailVerificationToken"
+> & {
+    storageUsed: number;
+    storageLimit: number;
+};

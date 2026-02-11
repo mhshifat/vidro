@@ -4,6 +4,7 @@ import { User } from "@/entities/user";
 import { JWTManager } from "@/lib/jwt";
 import { sendVerificationEmail } from "@/lib/email";
 import { randomBytes } from "crypto";
+import { Logger } from "@/lib/logger";
 
 export class AuthService {
     private userRepository: UserRepository;
@@ -13,6 +14,8 @@ export class AuthService {
     }
 
     async register(data: Pick<User, "email" | "password" | "name">): Promise<{ success: boolean; message: string }> {
+        const context = Logger.createContext();
+        
         const existingUser = await this.userRepository.findByEmail(data.email);
         if (existingUser) {
             throw new Error("User already exists");
@@ -42,12 +45,15 @@ export class AuthService {
         try {
             await sendVerificationEmail(user.email, verificationLink, user.name || "");
         } catch (error) {
-            console.error("Failed to send verification email:", error);
+            Logger.error("Failed to send verification email", error, context, {
+                userMessage: "Could not send verification email. Please try registering again.",
+                email: user.email,
+            });
             // Don't throw - user is created, just email failed
         }
 
         return { 
-            success: true, 
+            success: true,
             message: "Registration successful! Please check your email to verify your account." 
         };
     }

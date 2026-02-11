@@ -1,31 +1,35 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
-
-/** Convert BigInt fields to Number so JSON.stringify works */
-function serializeReport(report: any) {
-    return {
-        ...report,
-        fileSize: report.fileSize != null ? Number(report.fileSize) : 0,
-    };
-}
+import { ReportService } from "@/services/report-service";
+import { Logger, formatErrorResponse } from "@/lib/logger";
+import type { ConsoleLogEntry, NetworkLogEntry } from "@/entities/report";
 
 const createReportSchema = z.object({
     title: z.string().optional(),
     description: z.string().optional(),
-    type: z.enum(['VIDEO', 'SCREENSHOT']).optional().default('VIDEO'),
+    type: z.enum(["VIDEO", "SCREENSHOT"]).optional().default("VIDEO"),
     videoUrl: z.string().optional(),
     imageUrl: z.string().optional(),
     storageKey: z.string().optional(),
     fileSize: z.number().optional(),
     transcript: z.string().optional(),
-    consoleLogs: z.any().optional(),
-    networkLogs: z.any().optional(),
+    consoleLogs: z.array(z.object({
+        type: z.enum(["log", "warn", "error", "info", "debug"]),
+        args: z.array(z.unknown()).optional(),
+        timestamp: z.number().optional(),
+    })).optional(),
+    networkLogs: z.array(z.object({
+        url: z.string(),
+        method: z.string(),
+        status: z.number(),
+        duration: z.number().optional(),
+        timestamp: z.number().optional(),
+    })).optional(),
 }).refine(
     (data) => data.videoUrl || data.imageUrl,
-    { message: 'Either videoUrl or imageUrl must be provided' }
+    { message: "Either videoUrl or imageUrl must be provided" }
 );
 
 const updateReportSchema = z.object({
@@ -45,154 +49,253 @@ const updateReportSchema = z.object({
     securityScan: z.string().optional(),
     testCases: z.string().optional(),
     sentiment: z.string().optional(),
-    translations: z.record(z.string(), z.any()).optional(),
+    translations: z.record(z.string(), z.object({
+        title: z.string().optional(),
+        description: z.string().optional(),
+    })).optional(),
     highlightStart: z.number().optional(),
     highlightEnd: z.number().optional(),
-    annotations: z.array(z.any()).optional(),
+    annotations: z.array(z.object({
+        id: z.string(),
+        type: z.enum(["arrow", "box", "text", "highlight"]),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        text: z.string().optional(),
+        color: z.string().optional(),
+        timestamp: z.number().optional(),
+    })).optional(),
 });
 
 export async function GET(req: Request) {
+    const context = Logger.createContext();
+
     try {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get("id");
         if (!id) {
-            return NextResponse.json({ error: "Missing report id." }, { status: 400 });
+            return NextResponse.json(
+                formatErrorResponse("Missing report id.", context.correlationId),
+                { status: 400 }
+            );
         }
 
-        const report = await prisma.report.findUnique({ where: { id } });
+        const { report, error } = await ReportService.getById(id, context);
+
+        if (error) {
+            return NextResponse.json(
+                formatErrorResponse(error, context.correlationId),
+                { status: 500 }
+            );
+        }
+
         if (!report) {
-            return NextResponse.json({ error: "Report not found." }, { status: 404 });
+            return NextResponse.json(
+                formatErrorResponse("Report not found.", context.correlationId),
+                { status: 404 }
+            );
         }
 
-        return NextResponse.json(serializeReport(report));
+        return NextResponse.json(report);
     } catch (error) {
-        console.error("Failed to fetch report:", error);
-        return NextResponse.json({ error: "Failed to load report. Please try again." }, { status: 500 });
+        const errorResponse = Logger.error(
+            "Failed to fetch report",
+            error,
+            context,
+            { userMessage: "Failed to load report. Please try again." }
+        );
+        return NextResponse.json(
+            formatErrorResponse(errorResponse.message, context.correlationId),
+            { status: 500 }
+        );
     }
 }
 
 export async function POST(req: Request) {
+    const context = Logger.createContext();
+
     try {
-        // Get userId from auth cookie
         const cookieStore = await cookies();
         const token = cookieStore.get("token")?.value;
         if (!token) {
-            return NextResponse.json({ error: "Not authenticated. Please log in." }, { status: 401 });
+            return NextResponse.json(
+                formatErrorResponse("Not authenticated. Please log in.", context.correlationId),
+                { status: 401 }
+            );
         }
         const payload = await JWTManager.verify(token);
         if (!payload) {
-            return NextResponse.json({ error: "Session expired. Please log in again." }, { status: 401 });
+            return NextResponse.json(
+                formatErrorResponse("Session expired. Please log in again.", context.correlationId),
+                { status: 401 }
+            );
         }
 
-        let body: any;
+        context.userId = payload.userId as string;
+
+        let body: unknown;
         try {
             body = await req.json();
         } catch {
-            return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+            return NextResponse.json(
+                formatErrorResponse("Invalid request body.", context.correlationId),
+                { status: 400 }
+            );
         }
 
         const parsed = createReportSchema.safeParse(body);
         if (!parsed.success) {
             return NextResponse.json(
-                { error: "Invalid report data.", details: parsed.error.flatten().fieldErrors },
+                {
+                    error: "Invalid report data.",
+                    correlationId: context.correlationId,
+                    details: parsed.error.flatten().fieldErrors,
+                },
                 { status: 400 }
             );
         }
-        const data = parsed.data;
 
-        const report = await prisma.report.create({
-            data: {
-                title: data.title || (data.type === 'SCREENSHOT' ? 'Screenshot' : 'Untitled Bug Report'),
+        const data = parsed.data;
+        const { report, error } = await ReportService.create(
+            {
+                title: data.title,
                 description: data.description,
                 type: data.type,
-                videoUrl: data.videoUrl ?? null,
-                imageUrl: data.imageUrl ?? null,
+                videoUrl: data.videoUrl,
+                imageUrl: data.imageUrl,
                 storageKey: data.storageKey,
-                fileSize: data.fileSize ?? 0,
-                transcript: data.transcript ?? null,
-                consoleLogs: data.consoleLogs ?? [],
-                networkLogs: data.networkLogs ?? [],
+                fileSize: data.fileSize,
+                transcript: data.transcript,
+                consoleLogs: data.consoleLogs as ConsoleLogEntry[],
+                networkLogs: data.networkLogs as NetworkLogEntry[],
                 userId: payload.userId as string,
             },
-        });
+            context
+        );
 
-        return NextResponse.json(serializeReport(report));
+        if (error || !report) {
+            return NextResponse.json(
+                formatErrorResponse(error ?? "Failed to save report.", context.correlationId),
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json(report);
     } catch (error) {
-        console.error("Failed to create report:", error);
-        return NextResponse.json({ error: "Failed to save report. Please try again." }, { status: 500 });
+        const errorResponse = Logger.error(
+            "Failed to create report",
+            error,
+            context,
+            { userMessage: "Failed to save report. Please try again." }
+        );
+        return NextResponse.json(
+            formatErrorResponse(errorResponse.message, context.correlationId),
+            { status: 500 }
+        );
     }
 }
 
 export async function PATCH(req: Request) {
+    const context = Logger.createContext();
+
     try {
         const { searchParams } = new URL(req.url);
         const id = searchParams.get("id");
         if (!id) {
-            return NextResponse.json({ error: "Missing report id." }, { status: 400 });
+            return NextResponse.json(
+                formatErrorResponse("Missing report id.", context.correlationId),
+                { status: 400 }
+            );
         }
 
-        // Auth check
         const cookieStore = await cookies();
         const token = cookieStore.get("token")?.value;
         if (!token) {
-            return NextResponse.json({ error: "Not authenticated. Please log in." }, { status: 401 });
+            return NextResponse.json(
+                formatErrorResponse("Not authenticated. Please log in.", context.correlationId),
+                { status: 401 }
+            );
         }
         const payload = await JWTManager.verify(token);
         if (!payload) {
-            return NextResponse.json({ error: "Session expired. Please log in again." }, { status: 401 });
+            return NextResponse.json(
+                formatErrorResponse("Session expired. Please log in again.", context.correlationId),
+                { status: 401 }
+            );
         }
 
-        // Ownership check
-        const existing = await prisma.report.findUnique({ where: { id } });
-        if (!existing) {
-            return NextResponse.json({ error: "Report not found." }, { status: 404 });
-        }
-        if (existing.userId !== payload.userId) {
-            return NextResponse.json({ error: "You can only edit your own reports." }, { status: 403 });
-        }
+        context.userId = payload.userId as string;
 
-        // Parse & validate body
-        let body: Record<string, unknown>;
+        let body: unknown;
         try {
             body = await req.json();
         } catch {
-            return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+            return NextResponse.json(
+                formatErrorResponse("Invalid request body.", context.correlationId),
+                { status: 400 }
+            );
         }
 
         const parsed = updateReportSchema.safeParse(body);
         if (!parsed.success) {
             return NextResponse.json(
-                { error: "Invalid update data.", details: parsed.error.flatten().fieldErrors },
+                {
+                    error: "Invalid update data.",
+                    correlationId: context.correlationId,
+                    details: parsed.error.flatten().fieldErrors,
+                },
                 { status: 400 }
             );
         }
 
-        const updateData: Record<string, unknown> = {};
-        if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
-        if (parsed.data.description !== undefined) updateData.description = parsed.data.description;
-        if (parsed.data.transcript !== undefined) updateData.transcript = parsed.data.transcript;
-        if (parsed.data.severity !== undefined) updateData.severity = parsed.data.severity;
-        if (parsed.data.priority !== undefined) updateData.priority = parsed.data.priority;
-        if (parsed.data.tags !== undefined) updateData.tags = parsed.data.tags;
-        if (parsed.data.reproSteps !== undefined) updateData.reproSteps = parsed.data.reproSteps;
-        if (parsed.data.rootCause !== undefined) updateData.rootCause = parsed.data.rootCause;
-        if (parsed.data.logSummary !== undefined) updateData.logSummary = parsed.data.logSummary;
-        if (parsed.data.stakeholderSummary !== undefined) updateData.stakeholderSummary = parsed.data.stakeholderSummary;
-        if (parsed.data.suggestedFix !== undefined) updateData.suggestedFix = parsed.data.suggestedFix;
-        if (parsed.data.annotations !== undefined) updateData.annotations = parsed.data.annotations;
-
-        if (Object.keys(updateData).length === 0) {
-            return NextResponse.json({ error: "No fields to update." }, { status: 400 });
+        const data = parsed.data;
+        if (Object.keys(data).length === 0) {
+            return NextResponse.json(
+                formatErrorResponse("No fields to update.", context.correlationId),
+                { status: 400 }
+            );
         }
 
-        const updated = await prisma.report.update({
-            where: { id },
-            data: updateData,
-        });
+        const { report, error, notFound, forbidden } = await ReportService.update(
+            id,
+            payload.userId as string,
+            data,
+            context
+        );
 
-        return NextResponse.json(serializeReport(updated));
+        if (notFound) {
+            return NextResponse.json(
+                formatErrorResponse("Report not found.", context.correlationId),
+                { status: 404 }
+            );
+        }
+
+        if (forbidden) {
+            return NextResponse.json(
+                formatErrorResponse("You can only edit your own reports.", context.correlationId),
+                { status: 403 }
+            );
+        }
+
+        if (error || !report) {
+            return NextResponse.json(
+                formatErrorResponse(error ?? "Failed to update report.", context.correlationId),
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json(report);
     } catch (error) {
-        console.error("Failed to update report:", error);
-        return NextResponse.json({ error: "Failed to update report. Please try again." }, { status: 500 });
+        const errorResponse = Logger.error(
+            "Failed to update report",
+            error,
+            context,
+            { userMessage: "Failed to update report. Please try again." }
+        );
+        return NextResponse.json(
+            formatErrorResponse(errorResponse.message, context.correlationId),
+            { status: 500 }
+        );
     }
 }

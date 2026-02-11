@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { AIProvider, VideoAnalysisResult } from "./ai-provider";
+import { Logger } from "@/lib/logger";
+import pLimit from "p-limit";
 
 /**
  * Build the system prompt. When an audio transcript is available,
@@ -49,16 +51,17 @@ function cloudinaryFrameUrl(videoUrl: string, offsetSeconds: number): string {
  * Check which frame URLs are actually reachable (offset may exceed video duration).
  */
 async function getValidFrameUrls(videoUrl: string): Promise<string[]> {
+    const limit = pLimit(3); // Limit concurrent HEAD requests
     const urls = FRAME_OFFSETS.map(s => cloudinaryFrameUrl(videoUrl, s));
     const checks = await Promise.all(
-        urls.map(async (url) => {
+        urls.map((url) => limit(async () => {
             try {
                 const res = await fetch(url, { method: "HEAD" });
                 return res.ok ? url : null;
             } catch {
                 return null;
             }
-        })
+        }))
     );
     return checks.filter((u): u is string => u !== null).slice(0, MAX_FRAMES);
 }
@@ -96,8 +99,9 @@ export class GroqProvider implements AIProvider {
      * Returns empty string on failure (graceful fallback).
      */
     private async transcribeAudio(videoUrl: string): Promise<string> {
+        const context = Logger.createContext();
         try {
-            console.log("[Groq] Transcribing audio with Whisper...");
+            Logger.info("Transcribing audio with Whisper", context, { provider: "Groq" });
 
             const formData = new FormData();
             formData.append("model", "whisper-large-v3-turbo");
@@ -118,21 +122,22 @@ export class GroqProvider implements AIProvider {
 
             if (!response.ok) {
                 const errText = await response.text();
-                console.warn("[Groq] Whisper transcription failed:", response.status, errText);
+                Logger.warn("Whisper transcription failed", context, { status: response.status, error: errText, provider: "Groq" });
                 return "";
             }
 
             const result = await response.json() as { text?: string };
             const transcript = result.text?.trim() || "";
-            console.log(`[Groq] Whisper transcription completed: ${transcript.length} chars`);
+            Logger.info("Whisper transcription completed", context, { charCount: transcript.length, provider: "Groq" });
             return transcript;
         } catch (err) {
-            console.warn("[Groq] Whisper transcription error:", err);
+            Logger.warn("Whisper transcription error", context, { error: err, provider: "Groq" });
             return "";
         }
     }
 
     async analyzeVideo(videoUrl: string, _mimeType: string): Promise<VideoAnalysisResult> {
+        const context = Logger.createContext();
         const isVideo = /\.(webm|mp4|mov|avi|mkv)(\?|$)/i.test(videoUrl);
         const isCloudinary = videoUrl.includes("cloudinary.com");
 
@@ -140,12 +145,12 @@ export class GroqProvider implements AIProvider {
         const [imageUrls, audioTranscript] = await Promise.all([
             (async () => {
                 if (isVideo && isCloudinary) {
-                    console.log("[Groq] Extracting frames from Cloudinary video...");
+                    Logger.info("Extracting frames from Cloudinary video", context, { provider: "Groq" });
                     const frames = await getValidFrameUrls(videoUrl);
                     if (frames.length === 0) {
                         return [cloudinaryFrameUrl(videoUrl, 0)];
                     }
-                    console.log(`[Groq] Using ${frames.length} frames for analysis`);
+                    Logger.info("Using frames for analysis", context, { frameCount: frames.length, provider: "Groq" });
                     return frames;
                 }
                 return [videoUrl];
@@ -199,7 +204,7 @@ export class GroqProvider implements AIProvider {
                         transcript: parsed.transcript || "",
                     };
                 } catch {
-                    console.error("Groq returned non-JSON response:", text);
+                    Logger.warn("Groq returned non-JSON response", context, { response: text.slice(0, 500), provider: "Groq" });
                     return {
                         title: "Untitled Recording",
                         description: "",
@@ -216,7 +221,7 @@ export class GroqProvider implements AIProvider {
 
                 if (isRateLimit && attempt < MAX_RETRIES) {
                     const delayMs = BASE_DELAY_MS * Math.pow(2, attempt);
-                    console.warn(`[Groq] Rate limited. Retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+                    Logger.warn("Rate limited, retrying", context, { delayMs, attempt: attempt + 1, maxRetries: MAX_RETRIES, provider: "Groq" });
                     await new Promise(resolve => setTimeout(resolve, delayMs));
                     continue;
                 }

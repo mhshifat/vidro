@@ -7,6 +7,53 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Multi-Tenant: Organization ───────────────────────────────────────────────
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique // URL-friendly identifier
+  logoUrl   String?  @map("logo_url")
+  
+  // Organization-level quotas
+  storageLimit    BigInt   @default(5368709120) @map("storage_limit") // 5 GB default
+  maxReports      Int      @default(100) @map("max_reports")
+  maxMembers      Int      @default(10) @map("max_members")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members   OrganizationMember[]
+  reports   Report[]
+
+  @@map("organizations")
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  role           OrganizationRole @default(MEMBER)
+  
+  organizationId String           @map("organization_id")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  userId         String           @map("user_id")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
 model User {
   id    String   @id @default(cuid())
   email     String   @unique
@@ -25,13 +72,17 @@ model User {
   youtubeRefreshToken String?  @map("youtube_refresh_token")
   youtubeTokenExpiry  DateTime? @map("youtube_token_expiry")
 
-  // Per-user storage quotas (bytes)
+  // Per-user storage quotas (bytes) - for personal workspace
   storageUsed     BigInt   @default(0) @map("storage_used")
   storageLimit    BigInt   @default(524288000) @map("storage_limit") // 500 MB default
   maxReports      Int      @default(25) @map("max_reports")
 
-  reports             Report[]
-  comments            Comment[]
+  // User's current active organization (null = personal workspace)
+  activeOrganizationId String? @map("active_organization_id")
+
+  reports              Report[]
+  comments             Comment[]
+  organizationMembers  OrganizationMember[]
 
   @@map("users")
 }
@@ -70,14 +121,20 @@ model Report {
   highlightEnd        Float?   @map("highlight_end")         // video highlight end (seconds)
   annotations         Json?    @map("annotations")           // video annotations array
   
+  // Owner (user who created the report)
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id])
+  
+  // Multi-tenant: optional organization (null = personal workspace)
+  organizationId String?      @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   
   comments    Comment[]
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  @@index([organizationId])
   @@map("reports")
 }
 
