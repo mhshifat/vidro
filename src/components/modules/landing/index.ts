@@ -7,5 +7,6 @@ export { VideoToolsSection } from "./video-tools-section";
 export { HowItWorksSection } from "./how-it-works-section";
 export { StatsSection } from "./stats-section";
 export { ArchitectureSection } from "./architecture-section";
+export { ExtensionDemoSection } from "./extension-demo-section";
 export { CtaSection } from "./cta-section";
 export { Footer } from "./footer";

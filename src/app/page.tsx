@@ -8,6 +8,7 @@ import {
   VideoToolsSection,
   HowItWorksSection,
   StatsSection,
+  ExtensionDemoSection,
   CtaSection,
   Footer,
 } from "@/components/modules/landing";
@@ -45,6 +46,8 @@ export default function Home() {
         <HeroSection />
         <SectionDivider />
         <FeaturesSection />
+        <SectionDivider />
+        <ExtensionDemoSection />
         <SectionDivider />
         <AISection />
         <SectionDivider />
