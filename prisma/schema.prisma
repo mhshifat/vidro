@@ -53,6 +53,16 @@ model Report {
   logSummary        String?  @map("log_summary")       // console/network log summary
   stakeholderSummary String? @map("stakeholder_summary")// non-technical summary
   suggestedFix      String?  @map("suggested_fix")      // AI-suggested fix
+
+  // Round 2 AI Features
+  accessibilityAudit  String?  @map("accessibility_audit")   // WCAG accessibility issues
+  performanceAnalysis String?  @map("performance_analysis")  // performance bottleneck analysis
+  securityScan        String?  @map("security_scan")         // security vulnerability scan
+  testCases           String?  @map("test_cases")            // auto-generated test cases
+  sentiment           String?  @map("sentiment")             // sentiment/urgency JSON
+  translations        Json?    @map("translations")          // { lang: { title, description } }
+  highlightStart      Float?   @map("highlight_start")       // video highlight start (seconds)
+  highlightEnd        Float?   @map("highlight_end")         // video highlight end (seconds)
   
   userId      String   @map("user_id")
   user        User     @relation(fields: [userId], references: [id])

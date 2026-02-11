@@ -15,6 +15,11 @@ const insightSchema = z.object({
         "log-summary",
         "stakeholder-summary",
         "suggested-fix",
+        "accessibility-audit",
+        "performance-analysis",
+        "security-scan",
+        "test-cases",
+        "sentiment",
     ]),
 });
 
@@ -54,6 +59,17 @@ export async function POST(req: Request) {
 
         const service = new AIInsightsService();
 
+        /** Ensure a value is a plain string (AI sometimes returns objects instead of markdown strings) */
+        function str(v: unknown): string {
+            if (typeof v === "string") return v;
+            if (v === null || v === undefined) return "";
+            if (typeof v === "object") {
+                // Render object as readable markdown-ish text
+                return JSON.stringify(v, null, 2);
+            }
+            return String(v);
+        }
+
         // Helper to run analysis, persist, and return
         async function runAndPersist(
             fn: () => Promise<object>,
@@ -77,12 +93,12 @@ export async function POST(req: Request) {
             case "repro-steps":
                 return runAndPersist(
                     () => service.generateReproSteps(ctx),
-                    (r) => ({ reproSteps: (r as { steps: string }).steps }),
+                    (r) => ({ reproSteps: str((r as { steps: unknown }).steps) }),
                 );
             case "root-cause":
                 return runAndPersist(
                     () => service.analyzeRootCause(ctx),
-                    (r) => ({ rootCause: (r as { analysis: string }).analysis }),
+                    (r) => ({ rootCause: str((r as { analysis: unknown }).analysis) }),
                 );
             case "auto-tag":
                 return runAndPersist(
@@ -92,18 +108,51 @@ export async function POST(req: Request) {
             case "log-summary":
                 return runAndPersist(
                     () => service.summarizeLogs(ctx),
-                    (r) => ({ logSummary: (r as { summary: string }).summary }),
+                    (r) => ({ logSummary: str((r as { summary: unknown }).summary) }),
                 );
             case "stakeholder-summary":
                 return runAndPersist(
                     () => service.generateStakeholderSummary(ctx),
-                    (r) => ({ stakeholderSummary: (r as { summary: string }).summary }),
+                    (r) => ({ stakeholderSummary: str((r as { summary: unknown }).summary) }),
                 );
             case "suggested-fix":
                 return runAndPersist(
                     () => service.suggestFix(ctx),
-                    (r) => ({ suggestedFix: (r as { suggestion: string }).suggestion }),
+                    (r) => ({ suggestedFix: str((r as { suggestion: unknown }).suggestion) }),
                 );
+            case "accessibility-audit":
+                return runAndPersist(
+                    () => service.auditAccessibility(ctx),
+                    (r) => ({ accessibilityAudit: JSON.stringify(r) }),
+                );
+            case "performance-analysis":
+                return runAndPersist(
+                    () => service.detectPerformanceBottlenecks(ctx),
+                    (r) => ({ performanceAnalysis: JSON.stringify(r) }),
+                );
+            case "security-scan":
+                return runAndPersist(
+                    () => service.scanSecurity(ctx),
+                    (r) => ({ securityScan: JSON.stringify(r) }),
+                );
+            case "test-cases":
+                return runAndPersist(
+                    () => service.generateTestCases(ctx),
+                    (r) => ({ testCases: (r as { testCases: string }).testCases }),
+                );
+            case "sentiment": {
+                // Fetch comments for sentiment analysis
+                const comments = await prisma.comment.findMany({
+                    where: { reportId },
+                    select: { body: true },
+                    orderBy: { createdAt: "asc" },
+                    take: 50,
+                });
+                return runAndPersist(
+                    () => service.detectSentiment(ctx, comments.map(c => c.body)),
+                    (r) => ({ sentiment: JSON.stringify(r) }),
+                );
+            }
             default:
                 return NextResponse.json({ error: "Unknown insight type." }, { status: 400 });
         }

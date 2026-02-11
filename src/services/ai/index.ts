@@ -11,6 +11,16 @@ export type {
     DuplicateCandidate,
     DuplicateDetectionResult,
     SmartReplyResult,
+    AccessibilityAuditResult,
+    PerformanceAnalysisResult,
+    SecurityScanResult,
+    TestCaseResult,
+    SentimentResult,
+    TranslationResult,
+    WeeklyDigestResult,
+    SmartAssignmentResult,
+    VideoHighlightResult,
+    VisualDiffResult,
 } from "./ai-provider";
 export { AIService } from "./ai-service";
 export { AIInsightsService } from "./ai-insights";

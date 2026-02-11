@@ -57,6 +57,85 @@ export interface SmartReplyResult {
     replies: string[];
 }
 
+/* ─── Round 2 AI Feature Types ─────────────────────────────────── */
+
+export interface AccessibilityAuditResult {
+    issues: Array<{
+        rule: string;
+        severity: "critical" | "serious" | "moderate" | "minor";
+        description: string;
+        recommendation: string;
+    }>;
+    summary: string;
+    score: number; // 0-100
+}
+
+export interface PerformanceAnalysisResult {
+    bottlenecks: Array<{
+        type: string;
+        description: string;
+        impact: "high" | "medium" | "low";
+        suggestion: string;
+    }>;
+    summary: string;
+}
+
+export interface SecurityScanResult {
+    vulnerabilities: Array<{
+        type: string;
+        severity: "critical" | "high" | "medium" | "low";
+        description: string;
+        recommendation: string;
+    }>;
+    summary: string;
+}
+
+export interface TestCaseResult {
+    testCases: string; // markdown formatted test cases
+}
+
+export interface SentimentResult {
+    sentiment: "frustrated" | "neutral" | "constructive";
+    urgency: "critical" | "high" | "medium" | "low";
+    reasoning: string;
+}
+
+export interface TranslationResult {
+    language: string;
+    title: string;
+    description: string;
+}
+
+export interface WeeklyDigestResult {
+    summary: string;
+    topIssues: Array<{ title: string; severity: string; count: number }>;
+    trends: string;
+    recommendations: string;
+}
+
+export interface SmartAssignmentResult {
+    suggestedAssignee: string;
+    reasoning: string;
+    requiredSkills: string[];
+}
+
+export interface VideoHighlightResult {
+    startTime: number;
+    endTime: number;
+    description: string;
+    confidence: "high" | "medium" | "low";
+}
+
+export interface VisualDiffResult {
+    differences: Array<{
+        area: string;
+        description: string;
+        severity: "major" | "minor" | "cosmetic";
+    }>;
+    summary: string;
+    overallSimilarity: number; // 0-100
+}
+
 /** Context passed into insight-generating methods */
 export interface ReportContext {
     title?: string;

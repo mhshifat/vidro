@@ -10,6 +10,16 @@ import type {
     SuggestedFixResult,
     DuplicateDetectionResult,
     SmartReplyResult,
+    AccessibilityAuditResult,
+    PerformanceAnalysisResult,
+    SecurityScanResult,
+    TestCaseResult,
+    SentimentResult,
+    TranslationResult,
+    WeeklyDigestResult,
+    SmartAssignmentResult,
+    VideoHighlightResult,
+    VisualDiffResult,
 } from "./ai-provider";
 
 const MAX_RETRIES = 2;
@@ -60,7 +70,7 @@ export class AIInsightsService {
         return parts.join("\n\n");
     }
 
-    private async chat(systemPrompt: string, userPrompt: string): Promise<string> {
+    private async chat(systemPrompt: string, userPrompt: string, maxTokens = 2000): Promise<string> {
         let lastError: Error | null = null;
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             try {
@@ -70,7 +80,7 @@ export class AIInsightsService {
                         { role: "system", content: systemPrompt },
                         { role: "user", content: userPrompt },
                     ],
-                    max_tokens: 2000,
+                    max_tokens: maxTokens,
                     temperature: 0.3,
                 });
                 return response.choices[0]?.message?.content?.trim() ?? "";
@@ -108,11 +118,25 @@ export class AIInsightsService {
             }
         }
 
+        // 3. Try parsing as-is
         try {
             return JSON.parse(cleaned) as T;
         } catch {
-            console.warn("[AI Insights] JSON parse failed, raw text:", text.slice(0, 200));
-            throw new Error("AI returned invalid JSON. Please try again.");
+            // 4. Attempt to fix truncated JSON by closing open braces/brackets
+            let fixAttempt = cleaned;
+            const opens = (fixAttempt.match(/\{/g) || []).length;
+            const closes = (fixAttempt.match(/\}/g) || []).length;
+            if (opens > closes) {
+                // Remove any trailing incomplete key/value (after the last comma or colon)
+                fixAttempt = fixAttempt.replace(/,\s*"[^"]*"?\s*:?\s*"?[^"{}\[\]]*$/, "");
+                fixAttempt += "}".repeat(opens - closes);
+            }
+            try {
+                return JSON.parse(fixAttempt) as T;
+            } catch {
+                console.warn("[AI Insights] JSON parse failed, raw text:", text.slice(0, 300));
+                throw new Error("AI returned invalid JSON. Please try again.");
+            }
         }
     }
 
@@ -121,9 +145,14 @@ export class AIInsightsService {
     async generateReproSteps(ctx: ReportContext): Promise<ReproStepsResult> {
         const system = `You are a QA engineer. Given bug report data, generate clear, numbered reproduction steps in markdown format.
 Include: preconditions, step-by-step actions, expected result, actual result.
-Respond ONLY with valid JSON: { "steps": "string (markdown)" }`;
-        const result = await this.chat(system, this.buildContext(ctx));
-        return this.parseJSON<ReproStepsResult>(result);
+Respond ONLY with the markdown steps directly. Do NOT wrap in JSON.`;
+        const result = await this.chat(system, this.buildContext(ctx), 3000);
+        const cleaned = result.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/, "").trim();
+        // If the model still returned JSON, extract the steps field
+        if (cleaned.startsWith("{")) {
+            try { return this.parseJSON<ReproStepsResult>(cleaned); } catch { /* fall through */ }
+        }
+        return { steps: cleaned };
     }
 
     /* ─── Feature 2: Severity & Priority Classification ─────────── */
@@ -159,9 +188,13 @@ Structure your analysis as:
 3. **Related Systems** — What components/services are involved
 4. **Confidence** — How confident you are (high/medium/low) and why
 
-Respond ONLY with valid JSON: { "analysis": "string (markdown)" }`;
-        const result = await this.chat(system, this.buildContext(ctx));
-        return this.parseJSON<RootCauseResult>(result);
+Respond ONLY with the markdown analysis directly. Do NOT wrap in JSON.`;
+        const result = await this.chat(system, this.buildContext(ctx), 3000);
+        const cleaned = result.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/, "").trim();
+        if (cleaned.startsWith("{")) {
+            try { return this.parseJSON<RootCauseResult>(cleaned); } catch { /* fall through */ }
+        }
+        return { analysis: cleaned };
     }
 
     /* ─── Feature 4: Duplicate Detection ────────────────────────── */
@@ -247,9 +280,13 @@ Structure your summary as:
 
 Keep it concise but actionable. Focus on what a developer needs to fix the bug.
 
-Respond ONLY with valid JSON: { "summary": "string (markdown)" }`;
-        const result = await this.chat(system, this.buildContext(ctx));
-        return this.parseJSON<LogSummaryResult>(result);
+Respond ONLY with the markdown summary directly. Do NOT wrap in JSON.`;
+        const result = await this.chat(system, this.buildContext(ctx), 3000);
+        const cleaned = result.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/, "").trim();
+        if (cleaned.startsWith("{")) {
+            try { return this.parseJSON<LogSummaryResult>(cleaned); } catch { /* fall through */ }
+        }
+        return { summary: cleaned };
     }
 
     /* ─── Feature 8: Stakeholder Summary ────────────────────────── */
@@ -282,9 +319,13 @@ Structure your suggestion as:
 
 Be specific and actionable. Reference error messages and log entries when available.
 
-Respond ONLY with valid JSON: { "suggestion": "string (markdown)" }`;
-        const result = await this.chat(system, this.buildContext(ctx));
-        return this.parseJSON<SuggestedFixResult>(result);
+Respond ONLY with the markdown suggestion directly. Do NOT wrap in JSON.`;
+        const result = await this.chat(system, this.buildContext(ctx), 3000);
+        const cleaned = result.replace(/^```(?:markdown|md|json)?\s*/i, "").replace(/```\s*$/, "").trim();
+        if (cleaned.startsWith("{")) {
+            try { return this.parseJSON<SuggestedFixResult>(cleaned); } catch { /* fall through */ }
+        }
+        return { suggestion: cleaned };
     }
 
     /* ─── Feature 10: Smart Comment Replies ─────────────────────── */
@@ -311,5 +352,260 @@ Respond ONLY with valid JSON: { "replies": ["string", "string", "string"] }`;
         const userPrompt = `${this.buildContext(ctx)}\n\n**Comment to reply to:** "${commentBody}"${threadContext}`;
         const result = await this.chat(system, userPrompt);
         return this.parseJSON<SmartReplyResult>(result);
+    }
+
+    /* ─── Feature 11: Accessibility Audit ───────────────────────── */
+
+    async auditAccessibility(ctx: ReportContext): Promise<AccessibilityAuditResult> {
+        const system = `You are a WCAG accessibility expert. Analyze the bug report data (visual descriptions, transcript, console errors) to identify accessibility issues.
+
+Check for:
+- Missing alt text, labels, ARIA attributes
+- Color contrast issues
+- Keyboard navigation problems
+- Screen reader compatibility
+- Focus management issues
+- Touch target sizes
+
+Rate each issue severity: critical, serious, moderate, minor.
+Give an overall accessibility score 0-100.
+
+Respond ONLY with valid JSON:
+{
+  "issues": [{ "rule": "string (WCAG rule)", "severity": "critical|serious|moderate|minor", "description": "string", "recommendation": "string" }],
+  "summary": "string",
+  "score": number
+}
+If no issues found: { "issues": [], "summary": "No accessibility issues detected", "score": 100 }`;
+        const result = await this.chat(system, this.buildContext(ctx));
+        return this.parseJSON<AccessibilityAuditResult>(result);
+    }
+
+    /* ─── Feature 12: Performance Bottleneck Detection ──────────── */
+
+    async detectPerformanceBottlenecks(ctx: ReportContext): Promise<PerformanceAnalysisResult> {
+        const system = `You are a web performance expert. Analyze the bug report data — especially network logs (slow API calls, large payloads, many requests) and console logs (performance warnings) — to identify performance bottlenecks.
+
+Look for:
+- Slow API responses (>1s)
+- Large payload sizes (>1MB)
+- Too many concurrent requests
+- Memory leaks or excessive DOM operations
+- Render-blocking resources
+- N+1 query patterns
+
+Rate each bottleneck impact: high, medium, low.
+
+Respond ONLY with valid JSON:
+{
+  "bottlenecks": [{ "type": "string", "description": "string", "impact": "high|medium|low", "suggestion": "string" }],
+  "summary": "string"
+}
+If no issues found: { "bottlenecks": [], "summary": "No performance bottlenecks detected" }`;
+        const result = await this.chat(system, this.buildContext(ctx));
+        return this.parseJSON<PerformanceAnalysisResult>(result);
+    }
+
+    /* ─── Feature 13: Security Scan ─────────────────────────────── */
+
+    async scanSecurity(ctx: ReportContext): Promise<SecurityScanResult> {
+        const system = `You are a web security expert. Analyze the bug report data — especially console logs and network logs — to identify potential security vulnerabilities.
+
+Look for:
+- Exposed API keys, tokens, or credentials in logs
+- Insecure HTTP requests (instead of HTTPS)
+- CORS misconfigurations
+- XSS indicators
+- Missing security headers
+- Sensitive data in query parameters
+- Authentication/authorization issues
+
+Rate each vulnerability: critical, high, medium, low.
+
+Respond ONLY with valid JSON:
+{
+  "vulnerabilities": [{ "type": "string", "severity": "critical|high|medium|low", "description": "string", "recommendation": "string" }],
+  "summary": "string"
+}
+If no issues found: { "vulnerabilities": [], "summary": "No security vulnerabilities detected" }`;
+        const result = await this.chat(system, this.buildContext(ctx));
+        return this.parseJSON<SecurityScanResult>(result);
+    }
+
+    /* ─── Feature 14: Test Case Generation ──────────────────────── */
+
+    async generateTestCases(ctx: ReportContext): Promise<TestCaseResult> {
+        const system = `You are a QA automation engineer. Based on the bug report data, generate comprehensive test cases to verify the bug fix and prevent regression.
+
+Generate:
+1. **Bug Verification Test** — Tests that the specific bug is fixed
+2. **Regression Tests** — Related tests to ensure nothing else breaks
+3. **Edge Cases** — Boundary and edge case tests
+
+Format each test with: Title, Preconditions, Steps, Expected Result.
+Write in markdown format suitable for manual or automated testing.
+
+Respond ONLY with the markdown test cases directly. Do NOT wrap in JSON.`;
+        const result = await this.chat(system, this.buildContext(ctx), 4000);
+        // Raw markdown — strip any accidental fences and return
+        const cleaned = result
+            .replace(/^```(?:markdown|md)?\s*/i, "")
+            .replace(/```\s*$/, "")
+            .trim();
+        return { testCases: cleaned };
+    }
+
+    /* ─── Feature 15: Sentiment & Urgency Detection ─────────────── */
+
+    async detectSentiment(ctx: ReportContext, comments: string[]): Promise<SentimentResult> {
+        const system = `You are an emotional intelligence analyst. Analyze the bug report and associated comments to determine the overall sentiment and urgency level.
+
+Sentiment categories:
+- frustrated: User is visibly frustrated, angry, or experiencing repeated issues
+- neutral: Factual report with no strong emotion
+- constructive: User provides helpful details and suggestions
+
+Urgency levels:
+- critical: Blocking production, multiple users affected, data loss risk
+- high: Important feature broken, deadlines mentioned
+- medium: Notable issue but workarounds exist
+- low: Minor issue, enhancement request
+
+Respond ONLY with valid JSON: { "sentiment": "frustrated|neutral|constructive", "urgency": "critical|high|medium|low", "reasoning": "string" }`;
+
+        const commentSection = comments.length > 0
+            ? `\n\n**Comments:**\n${comments.map((c, i) => `${i + 1}. ${c}`).join("\n")}`
+            : "";
+        const userPrompt = `${this.buildContext(ctx)}${commentSection}`;
+        const result = await this.chat(system, userPrompt);
+        return this.parseJSON<SentimentResult>(result);
+    }
+
+    /* ─── Feature 16: Auto-Translate Report ─────────────────────── */
+
+    async translateReport(ctx: ReportContext, targetLanguage: string): Promise<TranslationResult> {
+        const system = `You are a professional translator. Translate the bug report title and description into ${targetLanguage}.
+
+Guidelines:
+- Maintain technical terminology accuracy
+- Keep the same tone and level of detail
+- Preserve formatting (markdown, code references)
+- Translate naturally, not literally
+
+Respond ONLY with valid JSON: { "language": "${targetLanguage}", "title": "translated title", "description": "translated description" }`;
+        const result = await this.chat(system, this.buildContext(ctx));
+        return this.parseJSON<TranslationResult>(result);
+    }
+
+    /* ─── Feature 17: Weekly Bug Digest ─────────────────────────── */
+
+    async generateWeeklyDigest(
+        reports: Array<{ title: string; severity?: string; tags?: string[]; createdAt: string }>
+    ): Promise<WeeklyDigestResult> {
+        if (reports.length === 0) {
+            return {
+                summary: "No bug reports were filed this week.",
+                topIssues: [],
+                trends: "No data available.",
+                recommendations: "No recommendations.",
+            };
+        }
+
+        const reportList = reports
+            .map((r, i) => `${i + 1}. "${r.title}" — Severity: ${r.severity || "unclassified"}, Tags: ${r.tags?.join(", ") || "none"}, Filed: ${r.createdAt}`)
+            .join("\n");
+
+        const system = `You are a project manager. Generate a weekly bug digest summarizing the bugs filed this week.
+
+Include:
+1. **Summary** — Overview of the week's bugs (count, severity breakdown)
+2. **Top Issues** — The most critical/frequent issues with count
+3. **Trends** — Any patterns or trends (increasing crashes, recurring auth issues, etc.)
+4. **Recommendations** — Action items for the team
+
+Respond ONLY with valid JSON:
+{
+  "summary": "string",
+  "topIssues": [{ "title": "string", "severity": "string", "count": number }],
+  "trends": "string",
+  "recommendations": "string"
+}`;
+        const result = await this.chat(system, `**Bug reports this week (${reports.length} total):**\n${reportList}`);
+        return this.parseJSON<WeeklyDigestResult>(result);
+    }
+
+    /* ─── Feature 18: Smart Assignment ──────────────────────────── */
+
+    async suggestAssignment(
+        ctx: ReportContext,
+        teamMembers: Array<{ name: string; expertise: string[] }>
+    ): Promise<SmartAssignmentResult> {
+        const memberList = teamMembers
+            .map((m, i) => `${i + 1}. ${m.name} — Expertise: ${m.expertise.join(", ")}`)
+            .join("\n");
+
+        const system = `You are a tech lead assigning bugs. Based on the bug report and team expertise, suggest the best team member to handle this bug.
+
+Consider:
+- Bug category matching team expertise
+- Complexity of the issue
+- Required skills
+
+Respond ONLY with valid JSON: { "suggestedAssignee": "name", "reasoning": "string", "requiredSkills": ["string"] }`;
+
+        const userPrompt = `${this.buildContext(ctx)}\n\n**Team Members:**\n${memberList}`;
+        const result = await this.chat(system, userPrompt);
+        return this.parseJSON<SmartAssignmentResult>(result);
+    }
+
+    /* ─── Feature 19: Video Highlight / Bug Moment ──────────────── */
+
+    async identifyBugMoment(ctx: ReportContext, videoDuration: number): Promise<VideoHighlightResult> {
+        const system = `You are a QA video analyst. Based on the bug report data (transcript, console logs with timestamps, and description), identify the exact moment in the video where the bug occurs.
+
+The video is ${videoDuration} seconds long.
+Provide a start time and end time (in seconds) that captures the bug moment with a small buffer before/after.
+
+Consider:
+- Error timestamps in console logs
+- Key phrases in the transcript indicating the issue
+- Any sudden changes described
+
+Respond ONLY with valid JSON:
+{
+  "startTime": number (seconds),
+  "endTime": number (seconds),
+  "description": "what happens at this moment",
+  "confidence": "high|medium|low"
+}`;
+        const result = await this.chat(system, this.buildContext(ctx));
+        return this.parseJSON<VideoHighlightResult>(result);
+    }
+
+    /* ─── Feature 20: Visual Diff / Compare Reports ─────────────── */
+
+    async compareReports(
+        report1: ReportContext,
+        report2: ReportContext
+    ): Promise<VisualDiffResult> {
+        const system = `You are a QA analyst comparing two bug reports. Analyze the differences between them to determine if they describe the same issue, related issues, or completely different bugs.
+
+Compare:
+- Symptoms described
+- Error messages
+- Affected features/areas
+- Steps to reproduce
+- Console/network log patterns
+
+Respond ONLY with valid JSON:
+{
+  "differences": [{ "area": "string", "description": "string", "severity": "major|minor|cosmetic" }],
+  "summary": "string explaining the relationship between the two reports",
+  "overallSimilarity": number (0-100)
+}`;
+
+        const userPrompt = `**REPORT 1:**\n${this.buildContext(report1)}\n\n**REPORT 2:**\n${this.buildContext(report2)}`;
+        const result = await this.chat(system, userPrompt);
+        return this.parseJSON<VisualDiffResult>(result);
     }
 }

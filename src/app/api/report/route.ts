@@ -40,6 +40,14 @@ const updateReportSchema = z.object({
     logSummary: z.string().optional(),
     stakeholderSummary: z.string().optional(),
     suggestedFix: z.string().optional(),
+    accessibilityAudit: z.string().optional(),
+    performanceAnalysis: z.string().optional(),
+    securityScan: z.string().optional(),
+    testCases: z.string().optional(),
+    sentiment: z.string().optional(),
+    translations: z.record(z.string(), z.any()).optional(),
+    highlightStart: z.number().optional(),
+    highlightEnd: z.number().optional(),
 });
 
 export async function GET(req: Request) {

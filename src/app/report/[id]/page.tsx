@@ -186,6 +186,15 @@ interface Report {
     logSummary: string | null;
     stakeholderSummary: string | null;
     suggestedFix: string | null;
+    // Round 2 AI features
+    accessibilityAudit: string | null;
+    performanceAnalysis: string | null;
+    securityScan: string | null;
+    testCases: string | null;
+    sentiment: string | null;
+    translations: Record<string, { title: string; description: string }> | null;
+    highlightStart: number | null;
+    highlightEnd: number | null;
     userId: string;
     createdAt: string;
     updatedAt: string;
@@ -1026,6 +1035,11 @@ export default function ReportPage() {
                                 logSummary: report.logSummary,
                                 stakeholderSummary: report.stakeholderSummary,
                                 suggestedFix: report.suggestedFix,
+                                accessibilityAudit: report.accessibilityAudit,
+                                performanceAnalysis: report.performanceAnalysis,
+                                securityScan: report.securityScan,
+                                testCases: report.testCases,
+                                sentiment: report.sentiment,
                             }}
                             onInsightsUpdate={handleInsightsUpdate}
                         />
