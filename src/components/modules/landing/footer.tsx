@@ -4,7 +4,7 @@ const FOOTER_LINKS = {
   Product: [
     { label: "Features", href: "#features" },
     { label: "Pricing", href: "#pricing" },
-    { label: "Chrome Extension", href: "#" },
+    { label: "Chrome Extension", href: "#extension" },
     { label: "Changelog", href: "#" },
   ],
   Company: [
