@@ -7,6 +7,22 @@ import { randomBytes } from "crypto";
 import { Logger } from "@/lib/logger";
 
 export class AuthService {
+        async generateEmailVerificationToken(user: User): Promise<string> {
+            // Generate new token and expiry
+            const verificationToken = randomBytes(32).toString("hex");
+            const verificationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            // Update user in DB
+            await this.userRepository.update(user.id, {
+                emailVerificationToken: verificationToken,
+                emailVerificationExpiry: verificationExpiry,
+            });
+            return verificationToken;
+        }
+
+        async sendVerificationEmail(user: User, token: string): Promise<void> {
+            const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL || "https://vidro.dev"}/verify-email?token=${token}`;
+            await sendVerificationEmail(user.email, verificationLink, user.name || "");
+        }
     private userRepository: UserRepository;
 
     constructor() {

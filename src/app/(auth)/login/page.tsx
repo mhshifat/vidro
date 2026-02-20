@@ -126,6 +126,8 @@ export default function LoginPage() {
     const router = useRouter();
     const [error, setError] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [resendStatus, setResendStatus] = useState<"idle" | "pending" | "sent" | "error">("idle");
+    const [resendToast, setResendToast] = useState<string | null>(null);
 
     const loginMutation = trpc.auth.login.useMutation({
         onSuccess: () => {
@@ -133,6 +135,19 @@ export default function LoginPage() {
             router.refresh();
         },
         onError: (e) => setError(e.message),
+    });
+
+    const resendMutation = trpc.auth.resendVerification.useMutation({
+        onSuccess: () => {
+            setResendStatus("sent");
+            setResendToast("Verification email sent!");
+            setTimeout(() => setResendToast(null), 2500);
+        },
+        onError: () => {
+            setResendStatus("error");
+            setResendToast("Failed to send verification email.");
+            setTimeout(() => setResendToast(null), 2500);
+        },
     });
 
     const form = useForm<LoginValues>({
@@ -143,6 +158,11 @@ export default function LoginPage() {
     function onSubmit(values: LoginValues) {
         setError("");
         loginMutation.mutate(values);
+    }
+
+    function handleResend(email: string) {
+        setResendStatus("pending");
+        resendMutation.mutate({ email });
     }
 
     return (
@@ -222,13 +242,38 @@ export default function LoginPage() {
 
                             {/* Error */}
                             {error && (
-                                <div role="alert" className="mb-6 flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div role="alert" className="mb-6 flex flex-col items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
                                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4 text-destructive" aria-hidden="true">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                         </svg>
                                     </div>
                                     <p className="text-sm text-destructive">{error}</p>
+                                    {error.includes("verify your email") && (
+                                        <div className="flex flex-col items-center gap-2 mt-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={resendStatus === "pending"}
+                                                onClick={() => handleResend(form.getValues("email"))}
+                                            >
+                                                {resendStatus === "pending" ? (
+                                                    <span className="flex items-center gap-2">
+                                                        <svg className="size-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                        </svg>
+                                                        Sending...
+                                                    </span>
+                                                ) : resendStatus === "sent" ? "Verification email sent!" : resendStatus === "error" ? "Failed to send email" : "Resend verification email"}
+                                            </Button>
+                                            {resendToast && (
+                                                <div className="text-sm font-semibold text-center text-primary bg-background/80 border border-primary/20 rounded-lg px-4 py-2 shadow animate-in fade-in duration-300">
+                                                    {resendToast}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 

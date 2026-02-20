@@ -369,17 +369,17 @@ function NewReportPageInner() {
                             </Tooltip>
                             <Separator orientation="vertical" className="h-5" />
                             {!isScreenshot && (
-                                <form onSubmit={form.handleSubmit(handleSaveReport)} className="flex items-center gap-2 min-w-0">
+                                <div className="flex items-center gap-2 min-w-0">
                                     <Input
                                         {...form.register("title")}
                                         className="h-auto border-none bg-transparent p-0 text-base font-bold shadow-none focus-visible:ring-0 truncate"
                                         placeholder="Give this report a name…"
                                     />
                                     <Button
-                                        type="submit"
                                         size="sm"
                                         disabled={saving}
                                         className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30"
+                                        onClick={() => form.handleSubmit(handleSaveReport)()}
                                     >
                                         {saving ? (
                                             <>
@@ -395,7 +395,7 @@ function NewReportPageInner() {
                                             </>
                                         )}
                                     </Button>
-                                </form>
+                                </div>
                             )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">

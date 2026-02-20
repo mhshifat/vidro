@@ -18,6 +18,26 @@ function sanitizeUser(user: User): SanitizedUser {
 }
 
 export const authRouter = router({
+        resendVerification: publicProcedure
+            .input(
+                z.object({
+                    email: z.string().email(),
+                })
+            )
+            .mutation(async ({ input }) => {
+                // Find user by email
+                const user = await prisma.user.findUnique({ where: { email: input.email } });
+                if (!user) throw new Error("User not found");
+                if (user.emailVerified) throw new Error("Email already verified");
+
+                // Generate new verification token
+                const token = await authService.generateEmailVerificationToken(user);
+
+                // Send verification email
+                await authService.sendVerificationEmail(user, token);
+
+                return { success: true };
+            }),
     register: publicProcedure
         .input(
             z.object({
