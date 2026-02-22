@@ -1,5 +1,6 @@
 "use client";
 
+import React from 'react';
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,8 +44,8 @@ export default function NewReportPage() {
 }
 
 const reportSchema = z.object({
-    title: z.string().min(2, "Title must be at least 2 characters"),
-    description: z.string().min(2, "Description must be at least 2 characters"),
+    title: z.string().optional(),
+    description: z.string().optional(),
 });
 
 type ReportFormValues = z.infer<typeof reportSchema>;
@@ -379,7 +380,9 @@ function NewReportPageInner() {
                                         size="sm"
                                         disabled={saving}
                                         className="shadow-md shadow-primary/20 transition-shadow hover:shadow-lg hover:shadow-primary/30"
-                                        onClick={() => form.handleSubmit(handleSaveReport)()}
+                                        onClick={() => {
+                                            form.handleSubmit(handleSaveReport)();
+                                        }}
                                     >
                                         {saving ? (
                                             <>
