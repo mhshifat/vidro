@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -108,6 +108,7 @@ function NewReportPageInner() {
     const [saving, setSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [copiedImage, setCopiedImage] = useState(false);
+    const retryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
     // Prevent accidental navigation while uploading
     useEffect(() => {
@@ -165,18 +166,43 @@ function NewReportPageInner() {
         };
 
         window.addEventListener("message", handleMessage);
-        window.postMessage({ type: "REPORT_PAGE_READY" }, "*");
 
-        // If after 3s we still have nothing, stop loading spinner
+        let dataReceived = false;
+        const markReceived = (event: MessageEvent) => {
+            if (
+                event.data?.type === "TRANSFER_RECORDING" ||
+                event.data?.type === "TRANSFER_SCREENSHOT" ||
+                event.data?.type === "TRANSFER_RECORDINGS_LIST"
+            ) {
+                dataReceived = true;
+            }
+        };
+        window.addEventListener("message", markReceived);
+
+        // Retry REPORT_PAGE_READY until the content script responds.
+        // The content script may not have its listener registered yet
+        // when the page first mounts (race condition on Mac Chrome).
+        let retryCount = 0;
+        const maxRetries = 10;
+        const sendReady = () => {
+            if (dataReceived || retryCount >= maxRetries) return;
+            window.postMessage({ type: "REPORT_PAGE_READY", pageType: isScreenshot ? "screenshot" : "recording" }, "*");
+            retryCount++;
+            retryTimerRef.current = setTimeout(sendReady, 300);
+        };
+        sendReady();
+
         const timeout = setTimeout(() => {
             setLoading(false);
-        }, 3000);
+        }, 4000);
 
         return () => {
             window.removeEventListener("message", handleMessage);
+            window.removeEventListener("message", markReceived);
             clearTimeout(timeout);
+            clearTimeout(retryTimerRef.current);
         };
-    }, [loadFromLocal, saveToLocal]);
+    }, [loadFromLocal, saveToLocal, isScreenshot]);
 
     const handleSelectRecording = (rec: RecordingPayload) => {
         setRecording(rec);
