@@ -19,6 +19,14 @@ interface LogsPanelProps {
 }
 
 export function LogsPanel({ consoleLogs, networkLogs, activeTab, onTabChange }: LogsPanelProps) {
+    // Filter out extension logs and requests
+    const filteredConsoleLogs = consoleLogs?.filter(
+        (log) => !log.args?.some((a) => typeof a === 'string' && a.includes('Offscreen-Pipe'))
+    ) ?? [];
+    const filteredNetworkLogs = networkLogs?.filter(
+        (req) => !req.url?.startsWith('chrome-extension://')
+    ) ?? [];
+
     return (
         <Card className="lg:col-span-12 py-0 overflow-hidden">
             <Tabs value={activeTab} onValueChange={onTabChange} className="h-full">
@@ -31,14 +39,14 @@ export function LogsPanel({ consoleLogs, networkLogs, activeTab, onTabChange }: 
                                 {Icons.console()}
                                 Console
                                 <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">
-                                    {consoleLogs?.length ?? 0}
+                                    {filteredConsoleLogs.length}
                                 </Badge>
                             </TabsTrigger>
                             <TabsTrigger value="network" className="text-xs gap-1.5 px-3">
                                 {Icons.network()}
                                 Network
                                 <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">
-                                    {networkLogs?.length ?? 0}
+                                    {filteredNetworkLogs.length}
                                 </Badge>
                             </TabsTrigger>
                         </TabsList>
@@ -48,8 +56,8 @@ export function LogsPanel({ consoleLogs, networkLogs, activeTab, onTabChange }: 
                 <TabsContent value="console" className="m-0">
                     <ScrollArea className="h-80">
                         <div className="divide-y divide-border/50">
-                            {consoleLogs?.length === 0 && <ReportEmptyState message="No console events captured" />}
-                            {consoleLogs?.map((log, i) => (
+                            {filteredConsoleLogs.length === 0 && <ReportEmptyState message="No console events captured" />}
+                            {filteredConsoleLogs.map((log, i) => (
                                 <div
                                     key={i}
                                     className="group flex items-start gap-3 px-5 py-2 text-xs font-mono transition-colors hover:bg-muted/40 animate-in fade-in slide-in-from-left-1 duration-200"
@@ -80,8 +88,8 @@ export function LogsPanel({ consoleLogs, networkLogs, activeTab, onTabChange }: 
                             <span>URL</span>
                         </div>
                         <div className="divide-y divide-border/50">
-                            {networkLogs?.length === 0 && <ReportEmptyState message="No network requests captured" />}
-                            {networkLogs?.map((req, i) => (
+                            {filteredNetworkLogs.length === 0 && <ReportEmptyState message="No network requests captured" />}
+                            {filteredNetworkLogs.map((req, i) => (
                                 <div
                                     key={i}
                                     className="group grid grid-cols-[70px_56px_1fr] gap-4 px-5 py-2 text-xs font-mono transition-colors hover:bg-muted/40 animate-in fade-in slide-in-from-left-1 duration-200"
