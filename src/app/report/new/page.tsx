@@ -466,8 +466,8 @@ function NewReportPageInner() {
                                             const a = document.createElement('a');
                                             a.href = screenshotData ? screenshotData.imageUrl : recording!.videoUrl;
                                             a.download = screenshotData
-                                                ? `${form.getValues("title").trim() || 'screenshot'}.png`
-                                                : `${form.getValues("title").trim() || 'recording'}.webm`;
+                                                ? `${form?.getValues("title")?.trim() || 'screenshot'}.png`
+                                                : `${form?.getValues("title")?.trim() || 'recording'}.webm`;
                                             document.body.appendChild(a);
                                             a.click();
                                             document.body.removeChild(a);
