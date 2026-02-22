@@ -3,6 +3,7 @@ import { authRouter } from "./auth";
 import { reportRouter } from "./report";
 import { commentRouter } from "./comment";
 import { organizationRouter } from "./organization";
+import { reportActionRouter } from "./report-action";
 
 export const appRouter = router({
     health: publicProcedure.query(() => {
@@ -12,6 +13,7 @@ export const appRouter = router({
     report: reportRouter,
     comment: commentRouter,
     organization: organizationRouter,
+    reportAction: reportActionRouter,
 });
 
 export type AppRouter = typeof appRouter;

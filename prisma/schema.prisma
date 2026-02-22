@@ -82,6 +82,7 @@ model User {
 
   reports              Report[]
   comments             Comment[]
+  reportActions        ReportAction[]
   organizationMembers  OrganizationMember[]
 
   @@map("users")
@@ -130,6 +131,7 @@ model Report {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   
   comments    Comment[]
+  actions     ReportAction[]
 
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -164,4 +166,38 @@ model Comment {
   @@index([reportId])
   @@index([parentId])
   @@map("comments")
+}
+
+// ─── Report Action History ──────────────────────────────────────────────────
+enum ReportActionType {
+  REPORT_CREATED
+  REPORT_UPDATED
+  REPORT_DELETED
+  COMMENT_ADDED
+  COMMENT_DELETED
+  AI_INSIGHTS_GENERATED
+  SEVERITY_CHANGED
+  PRIORITY_CHANGED
+  ANNOTATIONS_UPDATED
+  STATUS_CHANGED
+  ASSIGNED
+}
+
+model ReportAction {
+  id          String           @id @default(cuid())
+  actionType  ReportActionType @map("action_type")
+  description String
+  metadata    Json?            @map("metadata")
+
+  reportId    String           @map("report_id")
+  report      Report           @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  userId      String?          @map("user_id")
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([reportId, createdAt])
+  @@index([userId])
+  @@map("report_actions")
 }

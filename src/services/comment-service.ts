@@ -1,6 +1,7 @@
 import { CommentRepository } from "@/repositories/comment-repository";
 import { ReportRepository } from "@/repositories/report-repository";
 import { Logger, type LogContext } from "@/lib/logger";
+import { ReportActionService } from "@/services/report-action-service";
 import type {
     CommentWithUser,
     CreateCommentInput,
@@ -89,6 +90,13 @@ export class CommentService {
                 reportId: data.reportId,
                 userId,
             });
+
+            ReportActionService.recordCommentAdded(
+                data.reportId,
+                userId,
+                data.body,
+                context
+            );
 
             return {
                 comment: {
@@ -192,6 +200,12 @@ export class CommentService {
             await commentRepository.delete(id);
 
             Logger.info("Comment deleted", context, { commentId: id, userId });
+
+            ReportActionService.recordCommentDeleted(
+                existing.reportId,
+                userId,
+                context
+            );
 
             return { success: true };
         } catch (error) {

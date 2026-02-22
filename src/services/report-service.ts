@@ -2,6 +2,7 @@ import { ReportRepository } from "@/repositories/report-repository";
 import { prisma } from "@/lib/db";
 import { StorageService } from "@/services/storage/storage-service";
 import { Logger, type LogContext } from "@/lib/logger";
+import { ReportActionService } from "@/services/report-action-service";
 import type {
     Report,
     CreateReportInput,
@@ -126,6 +127,14 @@ export class ReportService {
                 return created;
             });
             Logger.info("Report created", context, { reportId: report.id, userId: data.userId });
+
+            ReportActionService.recordCreated(
+                report.id,
+                data.userId,
+                report.title ?? "Untitled Report",
+                context
+            );
+
             return {
                 report: {
                     ...report,
@@ -164,6 +173,51 @@ export class ReportService {
 
             const report = await reportRepository.update(id, data);
             Logger.info("Report updated", context, { reportId: id, userId });
+
+            const actuallyChangedFields = Object.keys(data).filter((key) => {
+                const newVal = data[key as keyof UpdateReportInput];
+                if (newVal === undefined) return false;
+                const oldVal = existing[key as keyof typeof existing];
+                if (typeof newVal === "object" || typeof oldVal === "object") {
+                    return JSON.stringify(newVal) !== JSON.stringify(oldVal);
+                }
+                return newVal !== oldVal;
+            });
+
+            if (actuallyChangedFields.length === 0) {
+                return {
+                    report: {
+                        ...report,
+                        fileSize: Number(report.fileSize),
+                    } as SerializedReport,
+                };
+            }
+
+            if (actuallyChangedFields.includes("severity")) {
+                ReportActionService.recordFieldChange(
+                    id, userId, "SEVERITY_CHANGED", "Severity",
+                    existing.severity, data.severity ?? null, context
+                );
+            }
+            if (actuallyChangedFields.includes("priority")) {
+                ReportActionService.recordFieldChange(
+                    id, userId, "PRIORITY_CHANGED", "Priority",
+                    existing.priority, data.priority ?? null, context
+                );
+            }
+
+            const nonTrackedFields = actuallyChangedFields.filter(
+                (f) => f !== "severity" && f !== "priority"
+            );
+            if (nonTrackedFields.length > 0) {
+                if (nonTrackedFields.length === 1 && nonTrackedFields[0] === "annotations") {
+                    const annotationCount = Array.isArray(data.annotations) ? data.annotations.length : 0;
+                    ReportActionService.recordAnnotationsUpdated(id, userId, annotationCount, context);
+                } else {
+                    ReportActionService.recordUpdated(id, userId, nonTrackedFields, context);
+                }
+            }
+
             return {
                 report: {
                     ...report,

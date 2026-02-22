@@ -30,6 +30,7 @@ import { CommentsSection, type Comment, type CommentMarker, getCommentMarkers, f
 import { AIInsightsPanel, type AIInsightsData } from "@/components/shared/ai-insights";
 import { VideoAnnotationOverlay, AnnotationToolbar, type VideoAnnotation } from "@/components/shared/video-annotations";
 import { ReportIcons } from "@/components/icons/report-icons";
+import { ReportActionTimeline } from "@/components/modules/report/report-action-timeline";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = ReportIcons;
@@ -1658,6 +1659,20 @@ export default function ReportPage() {
                                     onCommentsLoaded={handleCommentsLoaded}
                                 />
                             </CardContent>
+                        </Card>
+
+                        {/* ── Activity History ─────────────────── */}
+                        <Card className="lg:col-span-12 py-0 overflow-hidden">
+                            <div className="flex items-center gap-3 border-b px-5 py-2.5 bg-muted/30">
+                                <div className="flex items-center gap-2">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
+                                        <circle cx="12" cy="12" r="10" />
+                                        <polyline points="12 6 12 12 16 14" />
+                                    </svg>
+                                    <h3 className="text-sm font-bold tracking-tight">Activity History</h3>
+                                </div>
+                            </div>
+                            <ReportActionTimeline reportId={report.id} />
                         </Card>
                     </div>
                 </main>
