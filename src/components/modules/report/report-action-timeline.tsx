@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { keepPreviousData } from "@tanstack/react-query";
 import { trpc } from "@/trpc/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,7 +226,7 @@ export function ReportActionTimeline({ reportId }: ReportActionTimelineProps) {
             actionType: filterType,
         },
         {
-            keepPreviousData: true,
+            placeholderData: keepPreviousData,
         }
     );
 
@@ -351,8 +352,7 @@ export function ReportActionTimeline({ reportId }: ReportActionTimelineProps) {
                                                 {/* Metadata badges */}
                                                 {action.metadata && typeof action.metadata === "object" && (
                                                     <div className="flex flex-wrap gap-1 mt-1.5">
-                                                        {(action.metadata as Record<string, unknown>).changedFields &&
-                                                            Array.isArray((action.metadata as Record<string, unknown>).changedFields) &&
+                                                        {Array.isArray((action.metadata as Record<string, unknown>).changedFields) &&
                                                             ((action.metadata as Record<string, unknown>).changedFields as string[]).map((field) => (
                                                                 <Badge
                                                                     key={field}
