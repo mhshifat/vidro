@@ -650,6 +650,59 @@ Rules:
 
     /* ─── Feature 22: Screen OCR ────────────────────────────────── */
 
+    /* ─── Report Chat (streaming) ─────────────────────────────────── */
+
+    async *chatStream(
+        ctx: ReportContext,
+        messages: Array<{ role: "user" | "assistant"; content: string }>,
+        extraContext?: { severity?: string; priority?: string; reproSteps?: string; rootCause?: string; suggestedFix?: string }
+    ): AsyncGenerator<string> {
+        const systemParts: string[] = [
+            `You are an expert debugging assistant embedded in a bug-reporting tool called Vidro.`,
+            `You have access to all the data from a specific bug report. Use this data to answer the user's questions about the bug, help debug it, suggest fixes, explain errors, and provide technical guidance.`,
+            ``,
+            `## Report Data`,
+            this.buildContext(ctx),
+        ];
+
+        if (extraContext) {
+            if (extraContext.severity) systemParts.push(`**Severity:** ${extraContext.severity}`);
+            if (extraContext.priority) systemParts.push(`**Priority:** ${extraContext.priority}`);
+            if (extraContext.reproSteps) systemParts.push(`**Reproduction Steps:**\n${extraContext.reproSteps}`);
+            if (extraContext.rootCause) systemParts.push(`**Root Cause Analysis:**\n${extraContext.rootCause}`);
+            if (extraContext.suggestedFix) systemParts.push(`**Suggested Fix:**\n${extraContext.suggestedFix}`);
+        }
+
+        systemParts.push(
+            ``,
+            `## Instructions`,
+            `- Answer concisely and technically. Use markdown formatting.`,
+            `- Reference specific log entries, network requests, or transcript excerpts when relevant.`,
+            `- If you don't have enough information, say so and suggest what data would help.`,
+            `- When suggesting code fixes, use fenced code blocks with the language specified.`,
+        );
+
+        const apiMessages: OpenAI.ChatCompletionMessageParam[] = [
+            { role: "system", content: systemParts.join("\n") },
+            ...messages.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+        ];
+
+        const stream = await this.client.chat.completions.create({
+            model: MODEL,
+            messages: apiMessages,
+            max_tokens: 3000,
+            temperature: 0.4,
+            stream: true,
+        });
+
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta?.content;
+            if (delta) yield delta;
+        }
+    }
+
+    /* ─── Feature 22: Screen OCR ────────────────────────────────── */
+
     async extractTextFromFrame(context: string): Promise<{ text: string; regions: { text: string; location: string }[] }> {
         const system = `You are an OCR specialist analyzing a bug report. Based on the bug report context and the timestamp in the video, infer what text would likely be visible on screen at this point in the recording.
 

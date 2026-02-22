@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIProvider, VideoAnalysisResult } from "./ai-provider";
+import { AIProvider, VideoAnalysisResult, extractJsonFromResponse } from "./ai-provider";
 import { Logger } from "@/lib/logger";
 
 const SYSTEM_PROMPT = `You are a video analysis assistant for a bug reporting tool called Vidro.
@@ -11,6 +11,8 @@ Given a screen recording, produce:
    - Any spoken words (audio transcription)
    - Visual narration of on-screen actions (clicks, navigation, errors, UI changes)
    Format each entry on its own line with approximate timestamps like "[0:05] User clicks the Submit button".
+
+IMPORTANT: Ignore any Vidro extension UI elements visible in the recording (e.g. recording overlays, stop/pause buttons, "screen sharing" indicators, floating toolbars, or pop-ups from the Vidro extension). These are part of the recording tool itself and should NOT be mentioned in the title, description, or transcript. Focus only on the actual application content and user actions.
 
 Respond ONLY with valid JSON matching this schema (no markdown fences):
 {
@@ -69,12 +71,7 @@ export class GeminiProvider implements AIProvider {
                 });
 
                 const text = response.text?.trim() ?? "";
-
-                // Strip markdown code fences if Gemini wraps the response
-                const cleaned = text
-                    .replace(/^```json\s*/i, "")
-                    .replace(/```\s*$/, "")
-                    .trim();
+                const cleaned = extractJsonFromResponse(text);
 
                 try {
                     const parsed = JSON.parse(cleaned) as VideoAnalysisResult;

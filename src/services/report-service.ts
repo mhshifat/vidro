@@ -212,7 +212,9 @@ export class ReportService {
             if (nonTrackedFields.length > 0) {
                 if (nonTrackedFields.length === 1 && nonTrackedFields[0] === "annotations") {
                     const annotationCount = Array.isArray(data.annotations) ? data.annotations.length : 0;
-                    ReportActionService.recordAnnotationsUpdated(id, userId, annotationCount, context);
+                    if (annotationCount > 0) {
+                        ReportActionService.recordAnnotationsUpdated(id, userId, annotationCount, context);
+                    }
                 } else {
                     ReportActionService.recordUpdated(id, userId, nonTrackedFields, context);
                 }

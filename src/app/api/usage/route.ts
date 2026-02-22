@@ -22,8 +22,10 @@ export async function GET() {
             return NextResponse.json({ error: "Invalid token" }, { status: 401 });
         }
 
+        const userId = payload.userId as string;
+
         const user = await prisma.user.findUnique({
-            where: { id: payload.userId as string },
+            where: { id: userId },
             select: {
                 storageUsed: true,
                 storageLimit: true,
@@ -36,7 +38,22 @@ export async function GET() {
             return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
-        const storageUsed = Number(user.storageUsed);
+        // Recalculate actual storage from report file sizes to correct any drift
+        const aggregate = await prisma.report.aggregate({
+            where: { userId },
+            _sum: { fileSize: true },
+        });
+        const actualStorageUsed = Number(aggregate._sum.fileSize ?? 0);
+        const cachedStorageUsed = Number(user.storageUsed);
+
+        if (actualStorageUsed !== cachedStorageUsed) {
+            await prisma.user.update({
+                where: { id: userId },
+                data: { storageUsed: actualStorageUsed },
+            });
+        }
+
+        const storageUsed = actualStorageUsed;
         const storageLimit = Number(user.storageLimit);
         const reportsUsed = user._count.reports;
         const reportsLimit = user.maxReports;

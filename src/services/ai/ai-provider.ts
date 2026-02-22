@@ -159,3 +159,28 @@ export interface AIProvider {
      */
     analyzeVideo(videoUrl: string, mimeType: string): Promise<VideoAnalysisResult>;
 }
+
+/**
+ * Robustly extract a JSON object from an AI response string.
+ * Handles markdown fences, surrounding text/ellipses, and other noise
+ * that models sometimes wrap around their JSON output.
+ */
+export function extractJsonFromResponse(raw: string): string {
+    let text = raw.trim();
+
+    // Strip markdown code fences
+    text = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+
+    // If the cleaned text parses as JSON, use it directly
+    try { JSON.parse(text); return text; } catch { /* continue */ }
+
+    // Extract the first top-level { ... } block (handles surrounding text like "...")
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start !== -1 && end > start) {
+        const extracted = text.slice(start, end + 1);
+        try { JSON.parse(extracted); return extracted; } catch { /* continue */ }
+    }
+
+    return text;
+}

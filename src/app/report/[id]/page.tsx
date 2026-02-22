@@ -31,6 +31,7 @@ import { AIInsightsPanel, type AIInsightsData } from "@/components/shared/ai-ins
 import { VideoAnnotationOverlay, AnnotationToolbar, type VideoAnnotation } from "@/components/shared/video-annotations";
 import { ReportIcons } from "@/components/icons/report-icons";
 import { ReportActionTimeline } from "@/components/modules/report/report-action-timeline";
+import { ReportAiChat } from "@/components/modules/report/report-ai-chat";
 
 /* ─── SVG Icons ────────────────────────────────────────────────── */
 const Icons = ReportIcons;
@@ -1629,23 +1630,34 @@ export default function ReportPage() {
                                     </ScrollArea>
                                 </TabsContent>
 
-                                {report.transcript && (
-                                    <TabsContent value="transcript" className="m-0">
-                                        <ScrollArea className="h-80">
-                                            <div className="px-5 py-4 space-y-1">
-                                                {report.transcript.split('\n').map((line, i) => (
-                                                    <p
-                                                        key={i}
-                                                        className="text-sm text-foreground/80 leading-relaxed font-mono animate-in fade-in slide-in-from-left-1 duration-200"
-                                                        style={{ animationDelay: `${Math.min(i * 30, 500)}ms` }}
-                                                    >
-                                                        {line || '\u00A0'}
-                                                    </p>
-                                                ))}
-                                            </div>
-                                        </ScrollArea>
-                                    </TabsContent>
-                                )}
+                                {report.transcript && (() => {
+                                    // Handle legacy transcripts that contain the full JSON response
+                                    let transcriptText = report.transcript;
+                                    try {
+                                        const parsed = JSON.parse(transcriptText.trim().replace(/^\.{3}\s*/, '').replace(/\s*\.{3}$/, ''));
+                                        if (parsed && typeof parsed.transcript === 'string') {
+                                            transcriptText = parsed.transcript;
+                                        }
+                                    } catch { /* not JSON, use as-is */ }
+
+                                    return (
+                                        <TabsContent value="transcript" className="m-0">
+                                            <ScrollArea className="h-80">
+                                                <div className="px-5 py-4 space-y-1">
+                                                    {transcriptText.split('\n').map((line, i) => (
+                                                        <p
+                                                            key={i}
+                                                            className="text-sm text-foreground/80 leading-relaxed font-mono animate-in fade-in slide-in-from-left-1 duration-200"
+                                                            style={{ animationDelay: `${Math.min(i * 30, 500)}ms` }}
+                                                        >
+                                                            {line || '\u00A0'}
+                                                        </p>
+                                                    ))}
+                                                </div>
+                                            </ScrollArea>
+                                        </TabsContent>
+                                    );
+                                })()}
                             </Tabs>
                         </Card>
 
@@ -1913,6 +1925,9 @@ export default function ReportPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── AI Chat Bubble ─────────────────────────────── */}
+            <ReportAiChat reportId={report.id} reportTitle={report.title} />
         </TooltipProvider>
     );
 }

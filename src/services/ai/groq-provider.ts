@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { AIProvider, VideoAnalysisResult } from "./ai-provider";
+import { AIProvider, VideoAnalysisResult, extractJsonFromResponse } from "./ai-provider";
 import { Logger } from "@/lib/logger";
 import pLimit from "p-limit";
 
@@ -20,6 +20,8 @@ Analyse ALL frames together as a sequence to understand the full recording, then
 2. **description** – 2-4 sentences describing what happens in the recording, including any visible errors, UI interactions, and relevant context.
 3. **transcript** – A detailed chronological transcript narrating on-screen actions (clicks, navigation, errors, UI changes) based on the frame sequence.
    Format each entry on its own line with approximate timestamps like "[0:05] User clicks the Submit button".${audioSection}
+
+IMPORTANT: Ignore any Vidro extension UI elements visible in the recording (e.g. recording overlays, stop/pause buttons, "screen sharing" indicators, floating toolbars, or pop-ups from the Vidro extension). These are part of the recording tool itself and should NOT be mentioned in the title, description, or transcript. Focus only on the actual application content and user actions.
 
 Respond ONLY with valid JSON matching this schema (no markdown fences):
 {
@@ -189,12 +191,7 @@ export class GroqProvider implements AIProvider {
                 });
 
                 const text = response.choices[0]?.message?.content?.trim() ?? "";
-
-                // Strip markdown code fences if the model wraps the response
-                const cleaned = text
-                    .replace(/^```json\s*/i, "")
-                    .replace(/```\s*$/, "")
-                    .trim();
+                const cleaned = extractJsonFromResponse(text);
 
                 try {
                     const parsed = JSON.parse(cleaned) as VideoAnalysisResult;

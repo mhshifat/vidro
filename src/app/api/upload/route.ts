@@ -135,14 +135,6 @@ export async function POST(req: Request) {
             );
         }
 
-        // ── 6. Update user's storage usage ───────────────────
-        await prisma.user.update({
-            where: { id: userId },
-            data: {
-                storageUsed: { increment: buffer.byteLength },
-            },
-        });
-
         return NextResponse.json({
             url: result.url,
             key: result.key,

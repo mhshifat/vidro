@@ -41,7 +41,22 @@ async function getUsageInfo(userId: string): Promise<UsageInfo | null> {
         });
         if (!user) return null;
 
-        const storageUsed = Number(user.storageUsed);
+        // Recalculate actual storage from report file sizes to correct any drift
+        const aggregate = await prisma.report.aggregate({
+            where: { userId },
+            _sum: { fileSize: true },
+        });
+        const actualStorageUsed = Number(aggregate._sum.fileSize ?? 0);
+        const cachedStorageUsed = Number(user.storageUsed);
+
+        if (actualStorageUsed !== cachedStorageUsed) {
+            await prisma.user.update({
+                where: { id: userId },
+                data: { storageUsed: actualStorageUsed },
+            });
+        }
+
+        const storageUsed = actualStorageUsed;
         const storageLimit = Number(user.storageLimit);
         const reportsUsed = user._count.reports;
         const reportsLimit = user.maxReports;
