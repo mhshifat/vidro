@@ -89,6 +89,30 @@ export function FeaturesSection() {
             visual={<RecordingVisual />}
           />
 
+          {/* Smart Capture — large feature */}
+          <FeatureCard
+            className="sm:col-span-2 lg:col-span-2"
+            icon={<SmartCaptureIcon />}
+            title="Smart Capture"
+            description="Hover or drag to select any element — Vidro auto-detects and snaps to the closest DOM element. Export at custom sizes (OG Image, Twitter, 4K, and more) with auto-detected background color, padding, and toggles to include or remove box shadow, border, and outline."
+            visual={<SmartCaptureVisual />}
+          />
+
+          {/* Paste & Export */}
+          <FeatureCard
+            icon={<PasteExportIcon />}
+            title="Paste & Export"
+            description="Paste an image from your clipboard, drag & drop, or browse a file — then export at any custom size with auto-matched background and padding presets."
+          />
+
+          {/* Recording Privacy */}
+          <FeatureCard
+            icon={<PrivacyIcon />}
+            title="Recording Privacy"
+            description="Draw blur zones over sensitive areas that stay blurred throughout the recording. Block entire tabs from appearing in screen or window captures — passwords, emails, and internal tools never leak."
+            visual={<PrivacyVisual />}
+          />
+
           {/* One-click sharing */}
           <FeatureCard
             icon={<ShareIcon />}
@@ -201,6 +225,117 @@ function RecordingVisual() {
   );
 }
 
+function PrivacyVisual() {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border/40 bg-muted/20 p-4">
+      <div className="flex gap-3">
+        {/* Blur zones panel */}
+        <div className="flex-1 rounded-lg border border-border/40 bg-background/50 p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-3 text-red-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.163 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+            </svg>
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Blur Zones</span>
+          </div>
+          <div className="relative h-16 rounded-md bg-gradient-to-br from-muted/50 to-muted/20 overflow-hidden">
+            <div className="absolute top-2 left-2 right-6 h-3 rounded bg-foreground/8" />
+            <div className="absolute top-7 left-2 right-10 h-3 rounded bg-foreground/8" />
+            {/* Blur zone overlay */}
+            <div className="absolute top-1 left-1 h-8 w-20 rounded border border-red-500/40 bg-red-500/10 backdrop-blur-sm flex items-center justify-center">
+              <span className="text-[7px] font-bold text-red-400/70">BLURRED</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab blocking panel */}
+        <div className="flex-1 rounded-lg border border-border/40 bg-background/50 p-3">
+          <div className="flex items-center gap-1.5 mb-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-3 text-amber-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Tab Blocking</span>
+          </div>
+          <div className="space-y-1.5">
+            {[
+              { name: "Gmail", blocked: true },
+              { name: "Dashboard", blocked: false },
+              { name: "1Password", blocked: true },
+            ].map((tab) => (
+              <div key={tab.name} className="flex items-center justify-between rounded-md border border-border/30 bg-muted/20 px-2 py-1">
+                <span className={`text-[9px] font-medium ${tab.blocked ? "text-muted-foreground/50 line-through" : "text-foreground/70"}`}>{tab.name}</span>
+                <span className={`rounded px-1 py-0.5 text-[7px] font-bold ${tab.blocked ? "bg-red-500/10 text-red-400" : "bg-green-500/10 text-green-400"}`}>
+                  {tab.blocked ? "BLOCKED" : "VISIBLE"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SmartCaptureVisual() {
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border/40 bg-muted/20">
+      <div className="p-4">
+        {/* Element detection simulation */}
+        <div className="relative rounded-lg border-2 border-dashed border-purple-400/50 bg-purple-500/5 p-3">
+          <div className="absolute -top-2.5 left-3 flex items-center gap-1 rounded-full bg-purple-500 px-2 py-0.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" className="size-2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            <span className="text-[9px] font-bold text-white">div.card</span>
+            <span className="text-[8px] text-white/60">320 x 180</span>
+          </div>
+
+          {/* Mock captured card */}
+          <div className="rounded-lg border border-border/60 bg-card/80 p-3 shadow-md">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-6 w-6 rounded-md bg-gradient-to-br from-red-400 to-orange-400" />
+              <div className="flex-1 space-y-1">
+                <div className="h-2 w-24 rounded bg-foreground/10" />
+                <div className="h-1.5 w-16 rounded bg-muted-foreground/10" />
+              </div>
+            </div>
+            <div className="h-12 rounded-md bg-gradient-to-br from-muted/50 to-muted/20" />
+          </div>
+        </div>
+
+        {/* Confirm toolbar mockup */}
+        <div className="mt-2 flex items-center justify-end gap-1.5">
+          <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-2 py-0.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="size-2.5 text-purple-400">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            <span className="text-[9px] text-purple-400">Snapped</span>
+          </span>
+          <span className="rounded bg-green-600 px-2 py-0.5 text-[9px] font-semibold text-white">Capture</span>
+          <span className="rounded bg-neutral-700 px-2 py-0.5 text-[9px] font-semibold text-neutral-300">Reselect</span>
+        </div>
+      </div>
+
+      {/* Export bar mockup */}
+      <div className="border-t border-border/30 bg-muted/10 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-muted-foreground">Export</span>
+            <div className="flex gap-1">
+              {["OG Image", "Twitter", "HD", "4K"].map((p) => (
+                <span key={p} className="rounded border border-border/40 bg-background/60 px-1.5 py-0.5 text-[8px] font-medium text-muted-foreground">{p}</span>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[8px] font-medium text-purple-400">Shadow</span>
+            <span className="rounded bg-purple-500/10 px-1.5 py-0.5 text-[8px] font-medium text-purple-400">Border</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── SVG Icons ───────────────────────────────────────────── */
 
 function CameraIcon() {
@@ -248,6 +383,31 @@ function DeviceIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-5">
       <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+    </svg>
+  );
+}
+
+function PrivacyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  );
+}
+
+function SmartCaptureIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+    </svg>
+  );
+}
+
+function PasteExportIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="size-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 12.75h3m-3 3h3m-6-3h.008v.008H7.5v-.008zm0 3h.008v.008H7.5v-.008z" />
     </svg>
   );
 }

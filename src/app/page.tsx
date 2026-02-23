@@ -24,7 +24,7 @@ const jsonLd = {
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   url: "https://vidro.dev",
   featureList:
-    "Screen Recording, Screenshot Annotations, AI Bug Analysis, Console & Network Log Capture, Video Chapters, Duplicate Detection, Natural Language Search",
+    "Screen Recording, Screenshot Annotations, Smart Capture, Paste & Export, AI Bug Analysis, Console & Network Log Capture, Video Chapters, Duplicate Detection, Natural Language Search",
 };
 
 export default function Home() {
