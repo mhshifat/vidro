@@ -4,6 +4,8 @@ import { JWTManager } from "@/lib/jwt";
 import { AIService } from "@/services/ai";
 import { z } from "zod";
 
+export const maxDuration = 60;
+
 const analyzeSchema = z.object({
     /** Public URL of the uploaded video (e.g. Cloudinary URL) */
     videoUrl: z.string().url(),

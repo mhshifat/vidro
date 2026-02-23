@@ -4,6 +4,8 @@ import { JWTManager } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
 import { AIInsightsService } from "@/services/ai";
 
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
     try {
         const cookieStore = await cookies();

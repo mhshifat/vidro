@@ -6,6 +6,8 @@ import { ReportService } from "@/services/report-service";
 import { Logger, formatErrorResponse } from "@/lib/logger";
 import type { ConsoleLogEntry, NetworkLogEntry } from "@/entities/report";
 
+const MAX_BODY_BYTES = 4 * 1024 * 1024; // 4 MB hard cap (Vercel limit ~4.5 MB)
+
 const createReportSchema = z.object({
     title: z.string().optional(),
     description: z.string().optional(),
@@ -17,16 +19,16 @@ const createReportSchema = z.object({
     transcript: z.string().optional(),
     consoleLogs: z.array(z.object({
         type: z.enum(["log", "warn", "error", "info", "debug"]),
-        args: z.array(z.unknown()).optional(),
+        args: z.array(z.unknown()).max(20).optional(),
         timestamp: z.number().optional(),
-    })).optional(),
+    })).max(500).optional(),
     networkLogs: z.array(z.object({
         url: z.string(),
         method: z.string(),
         status: z.number(),
         duration: z.number().optional(),
         timestamp: z.number().optional(),
-    })).optional(),
+    })).max(1000).optional(),
 }).refine(
     (data) => data.videoUrl || data.imageUrl,
     { message: "Either videoUrl or imageUrl must be provided" }
@@ -116,6 +118,18 @@ export async function POST(req: Request) {
     const context = Logger.createContext();
 
     try {
+        // Early body-size guard to fail fast before Vercel's internal limit triggers
+        const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
+        if (contentLength > MAX_BODY_BYTES) {
+            return NextResponse.json(
+                formatErrorResponse(
+                    `Request too large (${(contentLength / (1024 * 1024)).toFixed(1)} MB). Reduce console/network log volume and try again.`,
+                    context.correlationId
+                ),
+                { status: 413 }
+            );
+        }
+
         const cookieStore = await cookies();
         const token = cookieStore.get("token")?.value;
         if (!token) {

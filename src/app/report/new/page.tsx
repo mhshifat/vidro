@@ -244,83 +244,86 @@ function NewReportPageInner() {
                 ? new File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' })
                 : new File([blob], `recording-${Date.now()}.webm`, { type: 'video/webm' });
 
-            // 2. Upload file to server
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const uploadRes = await fetch('/api/upload', {
+            // 2a. Get signed upload params from server (lightweight — no file data)
+            const fileSize = blob.size;
+            const signRes = await fetch('/api/upload/sign', {
                 method: 'POST',
-                body: formData,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileSize, isImage }),
             });
 
-            if (!uploadRes.ok) {
-                const uploadErr = await uploadRes.json().catch(() => ({}));
-                const detail = uploadErr.detail || uploadErr.error || 'Upload failed';
-                switch (uploadRes.status) {
-                    case 401:
-                        setSaveError('You are not logged in. Please log in and try again.');
-                        setSaving(false);
-                        return;
-                    case 413:
-                        setSaveError(`File too large. ${detail}`);
-                        setSaving(false);
-                        return;
-                    case 429:
-                        setSaveError(detail);
-                        setSaving(false);
-                        return;
-                    default:
-                        setSaveError(detail);
-                        setSaving(false);
-                        return;
+            if (!signRes.ok) {
+                const signErr = await signRes.json().catch(() => ({}));
+                const detail = signErr.detail || signErr.error || 'Upload failed';
+                setSaveError(signRes.status === 401
+                    ? 'You are not logged in. Please log in and try again.'
+                    : detail);
+                setSaving(false);
+                return;
+            }
+
+            const { signature, timestamp, apiKey, cloudName, folder, publicId, resourceType } = await signRes.json();
+
+            // 2b. Upload directly to Cloudinary (bypasses Vercel body-size limit)
+            const cloudinaryForm = new FormData();
+            cloudinaryForm.append('file', blob);
+            cloudinaryForm.append('signature', signature);
+            cloudinaryForm.append('timestamp', String(timestamp));
+            cloudinaryForm.append('api_key', apiKey);
+            cloudinaryForm.append('folder', folder);
+            cloudinaryForm.append('public_id', publicId);
+            cloudinaryForm.append('overwrite', 'true');
+
+            const cloudinaryRes = await fetch(
+                `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+                { method: 'POST', body: cloudinaryForm }
+            );
+
+            if (!cloudinaryRes.ok) {
+                const cloudErr = await cloudinaryRes.json().catch(() => ({}));
+                console.error('[Vidro] Cloudinary upload failed:', cloudErr);
+                setSaveError(cloudErr?.error?.message || 'Upload to storage failed. Please try again.');
+                setSaving(false);
+                return;
+            }
+
+            const cloudinaryResult = await cloudinaryRes.json();
+            const uploadedUrl = cloudinaryResult.secure_url as string;
+            const storageKey = cloudinaryResult.public_id as string;
+
+            // 3. Create the report immediately (no AI here — keeps request under Vercel Hobby 10s limit).
+            //    User can run "Generate" on the report page for title / description / transcript.
+            // 4. Trim logs to stay under Vercel's ~4.5 MB body limit
+            const MAX_PAYLOAD_BYTES = 3.5 * 1024 * 1024; // leave headroom for other fields
+            let consoleLogs = source.consoleLogs ?? [];
+            let networkLogs = source.networkLogs ?? [];
+
+            const estimateSize = () => JSON.stringify({ consoleLogs, networkLogs }).length;
+            if (estimateSize() > MAX_PAYLOAD_BYTES) {
+                // Trim console logs first (typically largest), then network
+                consoleLogs = consoleLogs.slice(0, 500);
+                if (estimateSize() > MAX_PAYLOAD_BYTES) {
+                    networkLogs = networkLogs.slice(0, 500);
+                }
+                if (estimateSize() > MAX_PAYLOAD_BYTES) {
+                    consoleLogs = consoleLogs.slice(0, 200);
+                    networkLogs = networkLogs.slice(0, 200);
                 }
             }
 
-            const { url: uploadedUrl, key: storageKey, fileSize } = await uploadRes.json();
-
-            // 3. Run AI analysis for videos (non-blocking — falls back gracefully)
-            let aiTitle = values.title;
-            let aiDescription = values.description;
-            let aiTranscript: string | undefined;
-
-            if (!isImage) {
-                try {
-                    console.log('[Vidro] Starting AI analysis for video:', uploadedUrl);
-                    const aiRes = await fetch('/api/ai/analyze', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ videoUrl: uploadedUrl, mimeType: 'video/webm' }),
-                    });
-                    if (aiRes.ok) {
-                        const ai = await aiRes.json();
-                        console.log('[Vidro] AI analysis result:', ai);
-                        // Only use AI values if the user hasn't customized them
-                        if (!values.title || values.title === 'Unlabeled Recording') aiTitle = ai.title;
-                        if (!values.description) aiDescription = ai.description;
-                        aiTranscript = ai.transcript;
-                    } else {
-                        const errBody = await aiRes.json().catch(() => ({}));
-                        console.warn('[Vidro] AI analysis returned non-OK status:', aiRes.status, errBody);
-                    }
-                } catch (aiErr) {
-                    console.warn('[Vidro] AI analysis failed, saving without AI content:', aiErr);
-                }
-            }
-
-            // 4. Create the report
             const reportRes = await fetch('/api/report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    title: aiTitle || (isImage ? 'Screenshot' : 'Untitled Bug Report'),
-                    description: aiDescription,
+                    title: values.title || (isImage ? 'Screenshot' : 'Untitled Bug Report'),
+                    description: values.description ?? '',
                     type: isImage ? 'SCREENSHOT' : 'VIDEO',
                     ...(isImage ? { imageUrl: uploadedUrl } : { videoUrl: uploadedUrl }),
                     storageKey,
                     fileSize,
-                    transcript: aiTranscript,
-                    consoleLogs: source.consoleLogs,
-                    networkLogs: source.networkLogs,
+                    transcript: undefined,
+                    consoleLogs,
+                    networkLogs,
                 }),
             });
 

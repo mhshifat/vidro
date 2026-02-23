@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 
+export const maxDuration = 60;
+
 const translateSchema = z.object({
     reportId: z.string(),
     language: z.string().min(2).max(50),

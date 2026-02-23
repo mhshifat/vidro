@@ -6,6 +6,8 @@ import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 
+export const maxDuration = 60;
+
 const schema = z.object({
     query: z.string().min(1).max(500),
 });

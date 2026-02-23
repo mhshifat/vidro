@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 
+export const maxDuration = 60;
+
 const messageSchema = z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().min(1),

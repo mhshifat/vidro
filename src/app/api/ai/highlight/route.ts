@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 
+export const maxDuration = 60;
+
 const highlightSchema = z.object({
     reportId: z.string(),
     videoDuration: z.number().positive(),

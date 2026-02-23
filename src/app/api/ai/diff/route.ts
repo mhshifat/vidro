@@ -5,6 +5,8 @@ import { prisma } from "@/lib/db";
 import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 
+export const maxDuration = 60;
+
 const diffSchema = z.object({
     reportId1: z.string(),
     reportId2: z.string(),

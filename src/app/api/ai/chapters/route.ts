@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AIInsightsService } from "@/services/ai/ai-insights";
 
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
     try {
         const { reportId, videoDuration } = await req.json();
