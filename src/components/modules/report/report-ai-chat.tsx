@@ -19,6 +19,8 @@ interface ChatMessage {
     role: "user" | "assistant";
     content: string;
     createdAt: Date;
+    /** Set when this message is an error from the API so we can show copyable ref ID */
+    correlationId?: string;
 }
 
 interface ReportAiChatProps {
@@ -212,6 +214,7 @@ export function ReportAiChat({ reportId, reportTitle }: ReportAiChatProps) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
+    const [refIdCopied, setRefIdCopied] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const abortRef = useRef<AbortController | null>(null);
@@ -271,12 +274,14 @@ export function ReportAiChat({ reportId, reportTitle }: ReportAiChatProps) {
             });
 
             if (!response.ok) {
-                const err = await response.json().catch(() => ({ error: "Request failed" }));
+                const body = await response.json().catch(() => ({})) as { error?: string; correlationId?: string };
+                const safeMessage = "Something went wrong. Please try again.";
                 setMessages((prev) => {
                     const updated = [...prev];
                     updated[updated.length - 1] = {
                         ...updated[updated.length - 1],
-                        content: `Sorry, I encountered an error: ${err.error ?? "Unknown error"}. Please try again.`,
+                        content: `Sorry, I encountered an error. ${safeMessage}`,
+                        correlationId: body.correlationId,
                     };
                     return updated;
                 });
@@ -338,6 +343,23 @@ export function ReportAiChat({ reportId, reportTitle }: ReportAiChatProps) {
     const handleStop = useCallback(() => {
         abortRef.current?.abort();
         setIsStreaming(false);
+    }, []);
+
+    const copyRefId = useCallback(async (correlationId: string) => {
+        try {
+            await navigator.clipboard.writeText(correlationId);
+            setRefIdCopied(correlationId);
+            setTimeout(() => setRefIdCopied(null), 2000);
+        } catch {
+            const ta = document.createElement("textarea");
+            ta.value = correlationId;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            document.body.removeChild(ta);
+            setRefIdCopied(correlationId);
+            setTimeout(() => setRefIdCopied(null), 2000);
+        }
     }, []);
 
     return (
@@ -460,6 +482,24 @@ export function ReportAiChat({ reportId, reportTitle }: ReportAiChatProps) {
                                                     <span className="size-1.5 rounded-full bg-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} />
                                                 </div>
                                                 <span className="text-[11px] text-muted-foreground">Thinking...</span>
+                                            </div>
+                                        )}
+                                        {msg.role === "assistant" && msg.correlationId && (
+                                            <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-2">
+                                                <span className="text-[10px] text-muted-foreground">Reference ID:</span>
+                                                <code className="text-[10px] font-mono truncate flex-1">{msg.correlationId}</code>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => copyRefId(msg.correlationId!)}
+                                                            className="shrink-0 px-1.5 py-0.5 rounded text-[10px] bg-muted hover:bg-muted/80"
+                                                        >
+                                                            {refIdCopied === msg.correlationId ? "Copied" : "Copy"}
+                                                        </button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent side="left">Copy reference ID for support</TooltipContent>
+                                                </Tooltip>
                                             </div>
                                         )}
                                     </div>

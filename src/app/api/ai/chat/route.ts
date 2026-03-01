@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
+import { Logger } from "@/lib/logger";
 import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 
@@ -106,11 +107,17 @@ export async function POST(req: Request) {
             },
         });
     } catch (error) {
-        console.error("[AI Chat] Failed:", error);
+        const context = Logger.createContext();
+        const result = Logger.error(
+            "[AI Chat] Failed",
+            error,
+            context,
+            { userMessage: "Failed to process chat message. Please try again." }
+        );
         return new Response(
             JSON.stringify({
-                error: "Failed to process chat message.",
-                detail: error instanceof Error ? error.message : String(error),
+                error: result.message,
+                correlationId: result.correlationId,
             }),
             { status: 502, headers: { "Content-Type": "application/json" } }
         );

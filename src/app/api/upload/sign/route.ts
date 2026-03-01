@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
+import { Logger, formatErrorResponse } from "@/lib/logger";
 import { v2 as cloudinary } from "cloudinary";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -120,7 +121,16 @@ export async function POST(req: Request) {
             resourceType,
         });
     } catch (error) {
-        console.error("Upload sign failed:", error);
-        return NextResponse.json({ error: "Failed to prepare upload." }, { status: 500 });
+        const context = Logger.createContext();
+        const result = Logger.error(
+            "Upload sign failed",
+            error,
+            context,
+            { userMessage: "Failed to prepare upload. Please try again." }
+        );
+        return NextResponse.json(
+            formatErrorResponse(result.message, result.correlationId),
+            { status: 500 }
+        );
     }
 }

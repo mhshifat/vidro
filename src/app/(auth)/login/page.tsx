@@ -125,6 +125,8 @@ function StatPill({ value, label }: { value: string; label: string }) {
 export default function LoginPage() {
     const router = useRouter();
     const [error, setError] = useState("");
+    const [correlationId, setCorrelationId] = useState<string | null>(null);
+    const [refIdCopied, setRefIdCopied] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [resendStatus, setResendStatus] = useState<"idle" | "pending" | "sent" | "error">("idle");
     const [resendToast, setResendToast] = useState<string | null>(null);
@@ -134,7 +136,11 @@ export default function LoginPage() {
             router.push("/dashboard");
             router.refresh();
         },
-        onError: (e) => setError(e.message),
+        onError: (e) => {
+            setError(e.message);
+            const data = e.data as { correlationId?: string } | undefined;
+            setCorrelationId(data?.correlationId ?? null);
+        },
     });
 
     const resendMutation = trpc.auth.resendVerification.useMutation({
@@ -157,7 +163,15 @@ export default function LoginPage() {
 
     function onSubmit(values: LoginValues) {
         setError("");
+        setCorrelationId(null);
         loginMutation.mutate(values);
+    }
+
+    async function copyCorrelationId() {
+        if (!correlationId) return;
+        await navigator.clipboard.writeText(correlationId);
+        setRefIdCopied(true);
+        setTimeout(() => setRefIdCopied(false), 2000);
     }
 
     function handleResend(email: string) {
@@ -248,7 +262,23 @@ export default function LoginPage() {
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                         </svg>
                                     </div>
-                                    <p className="text-sm text-destructive">{error}</p>
+                                    <p className="text-sm text-destructive text-center">{error}</p>
+                                    {correlationId && (
+                                        <div className="flex flex-col items-center gap-1.5 w-full">
+                                            <p className="text-xs text-muted-foreground" title="Share this ID with support if you need help.">
+                                                Reference ID: <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">{correlationId}</code>
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={copyCorrelationId}
+                                                className="h-8 text-xs"
+                                            >
+                                                {refIdCopied ? "Copied!" : "Copy reference ID"}
+                                            </Button>
+                                        </div>
+                                    )}
                                     {error.includes("verify your email") && (
                                         <div className="flex flex-col items-center gap-2 mt-2">
                                             <Button

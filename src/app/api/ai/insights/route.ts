@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
+import { Logger } from "@/lib/logger";
 import { AIInsightsService } from "@/services/ai";
 import { z } from "zod";
 
@@ -159,9 +160,15 @@ export async function POST(req: Request) {
                 return NextResponse.json({ error: "Unknown insight type." }, { status: 400 });
         }
     } catch (error) {
-        console.error("[AI Insights] Failed:", error);
+        const context = Logger.createContext();
+        const result = Logger.error(
+            "[AI Insights] Failed",
+            error,
+            context,
+            { userMessage: "AI analysis failed. Please try again." }
+        );
         return NextResponse.json(
-            { error: "AI analysis failed.", detail: error instanceof Error ? error.message : String(error) },
+            { error: result.message, correlationId: result.correlationId },
             { status: 502 },
         );
     }

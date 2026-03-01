@@ -12,7 +12,7 @@ import type { UsageInfo, ReportSummary } from "@/types/dashboard";
 const REPORTS_PER_PAGE = 12;
 
 /**
- * Get current user from JWT token
+ * Get current user from JWT and ensure they still exist in the DB (invalidates session after DB reset).
  */
 async function getCurrentUser() {
     const cookieStore = await cookies();
@@ -22,7 +22,11 @@ async function getCurrentUser() {
     const payload = await JWTManager.verify(token);
     if (!payload?.userId) return null;
 
-    return payload.userId;
+    const user = await prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { id: true },
+    });
+    return user?.id ?? null;
 }
 
 /**
@@ -95,7 +99,7 @@ async function DashboardData() {
     const userId = await getCurrentUser();
 
     if (!userId) {
-        redirect("/login");
+        redirect("/api/auth/logout?redirect=/login");
     }
 
     const context = Logger.createContext(userId);

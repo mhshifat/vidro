@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
 import { prisma } from "@/lib/db";
 import { SanitizedUser, User } from "@/entities/user";
+import { handleAuthError } from "@/lib/auth-errors";
 
 const authService = new AuthService();
 
@@ -25,18 +26,17 @@ export const authRouter = router({
                 })
             )
             .mutation(async ({ input }) => {
-                // Find user by email
-                const user = await prisma.user.findUnique({ where: { email: input.email } });
-                if (!user) throw new Error("User not found");
-                if (user.emailVerified) throw new Error("Email already verified");
+                try {
+                    const user = await prisma.user.findUnique({ where: { email: input.email } });
+                    if (!user) throw new Error("User not found");
+                    if (user.emailVerified) throw new Error("Email already verified");
 
-                // Generate new verification token
-                const token = await authService.generateEmailVerificationToken(user);
-
-                // Send verification email
-                await authService.sendVerificationEmail(user, token);
-
-                return { success: true };
+                    const token = await authService.generateEmailVerificationToken(user);
+                    await authService.sendVerificationEmail(user, token);
+                    return { success: true };
+                } catch (e) {
+                    handleAuthError(e, "resendVerification");
+                }
             }),
     register: publicProcedure
         .input(
@@ -47,8 +47,11 @@ export const authRouter = router({
             })
         )
         .mutation(async ({ input }) => {
-            const result = await authService.register(input);
-            return result;
+            try {
+                return await authService.register(input);
+            } catch (e) {
+                handleAuthError(e, "register");
+            }
         }),
 
     verifyEmail: publicProcedure
@@ -58,9 +61,13 @@ export const authRouter = router({
             })
         )
         .mutation(async ({ input }) => {
-            const { token, user } = await authService.verifyEmail(input.token);
-            (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
-            return sanitizeUser(user);
+            try {
+                const { token, user } = await authService.verifyEmail(input.token);
+                (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
+                return sanitizeUser(user);
+            } catch (e) {
+                handleAuthError(e, "verifyEmail");
+            }
         }),
 
     login: publicProcedure
@@ -71,9 +78,13 @@ export const authRouter = router({
             })
         )
         .mutation(async ({ input }) => {
-            const { token, user } = await authService.login(input);
-            (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
-            return sanitizeUser(user);
+            try {
+                const { token, user } = await authService.login(input);
+                (await cookies()).set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production" });
+                return sanitizeUser(user);
+            } catch (e) {
+                handleAuthError(e, "login");
+            }
         }),
 
     logout: publicProcedure.mutation(async () => {
@@ -82,12 +93,16 @@ export const authRouter = router({
     }),
 
     me: publicProcedure.query(async () => {
-        const token = (await cookies()).get("token")?.value;
-        if (!token) return null;
-        const payload = await JWTManager.verify(token);
-        if (!payload) return null;
-        const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-        if (!user) return null;
-        return sanitizeUser(user);
+        try {
+            const token = (await cookies()).get("token")?.value;
+            if (!token) return null;
+            const payload = await JWTManager.verify(token);
+            if (!payload) return null;
+            const user = await prisma.user.findUnique({ where: { id: payload.userId } });
+            if (!user) return null;
+            return sanitizeUser(user);
+        } catch (e) {
+            handleAuthError(e, "me");
+        }
     }),
 });

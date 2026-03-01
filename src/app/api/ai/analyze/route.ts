@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { JWTManager } from "@/lib/jwt";
+import { Logger } from "@/lib/logger";
 import { AIService } from "@/services/ai";
 import { z } from "zod";
 
@@ -64,12 +65,15 @@ export async function POST(req: Request) {
 
         return NextResponse.json(result);
     } catch (error) {
-        console.error("[AI Analyze] Failed:", error);
+        const context = Logger.createContext();
+        const result = Logger.error(
+            "[AI Analyze] Failed",
+            error,
+            context,
+            { userMessage: "AI analysis failed. Your report will be saved without AI-generated content." }
+        );
         return NextResponse.json(
-            {
-                error: "AI analysis failed. Your report will be saved without AI-generated content.",
-                detail: error instanceof Error ? error.message : String(error),
-            },
+            { error: result.message, correlationId: result.correlationId },
             { status: 502 }
         );
     }

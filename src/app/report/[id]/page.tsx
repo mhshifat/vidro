@@ -30,6 +30,8 @@ import { CommentsSection, type Comment, type CommentMarker, getCommentMarkers, f
 import { AIInsightsPanel, type AIInsightsData } from "@/components/shared/ai-insights";
 import { VideoAnnotationOverlay, AnnotationToolbar, type VideoAnnotation } from "@/components/shared/video-annotations";
 import { ReportIcons } from "@/components/icons/report-icons";
+
+type ErrorState = { message: string; correlationId?: string } | null;
 import { ReportActionTimeline } from "@/components/modules/report/report-action-timeline";
 import { ReportAiChat } from "@/components/modules/report/report-ai-chat";
 
@@ -690,9 +692,10 @@ export default function ReportPage() {
     const [editTitle, setEditTitle] = useState("");
     const [editDescription, setEditDescription] = useState("");
     const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveError, setSaveError] = useState<ErrorState>(null);
     const [generating, setGenerating] = useState(false);
-    const [generateError, setGenerateError] = useState<string | null>(null);
+    const [generateError, setGenerateError] = useState<ErrorState>(null);
+    const [refIdCopied, setRefIdCopied] = useState(false);
 
     // Video ↔ Comments state
     const [videoCurrentTime, setVideoCurrentTime] = useState<number>(0);
@@ -1048,14 +1051,20 @@ export default function ReportPage() {
                 }),
             });
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || "Failed to update report.");
+                const body = await res.json().catch(() => ({}));
+                setSaveError({
+                    message: (body as { error?: string }).error || "Failed to update report.",
+                    correlationId: (body as { correlationId?: string }).correlationId,
+                });
+                return;
             }
             const updated = await res.json();
             setReport(updated);
             setEditing(false);
         } catch (err) {
-            setSaveError(err instanceof Error ? err.message : "Failed to update report.");
+            setSaveError({
+                message: err instanceof Error ? err.message : "Failed to update report.",
+            });
         } finally {
             setSaving(false);
         }
@@ -1081,13 +1090,17 @@ export default function ReportPage() {
             });
 
             if (!aiRes.ok) {
-                const err = await aiRes.json().catch(() => ({}));
-                throw new Error(err.detail || err.error || 'AI analysis failed.');
+                const body = await aiRes.json().catch(() => ({}));
+                const b = body as { error?: string; detail?: string; correlationId?: string };
+                setGenerateError({
+                    message: b.detail || b.error || "AI analysis failed.",
+                    correlationId: b.correlationId,
+                });
+                return;
             }
 
             const ai = await aiRes.json();
 
-            // 2. Save AI results to the report
             const patchRes = await fetch(`/api/report?id=${report.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -1099,15 +1112,22 @@ export default function ReportPage() {
             });
 
             if (!patchRes.ok) {
-                const err = await patchRes.json().catch(() => ({}));
-                throw new Error(err.error || 'Failed to save AI-generated content.');
+                const body = await patchRes.json().catch(() => ({}));
+                const b = body as { error?: string; correlationId?: string };
+                setGenerateError({
+                    message: b.error || "Failed to save AI-generated content.",
+                    correlationId: b.correlationId,
+                });
+                return;
             }
 
             const updated = await patchRes.json();
             setReport(updated);
         } catch (err) {
             console.error('AI generation failed:', err);
-            setGenerateError(err instanceof Error ? err.message : 'AI generation failed.');
+            setGenerateError({
+                message: err instanceof Error ? err.message : "AI generation failed.",
+            });
         } finally {
             setGenerating(false);
         }
@@ -1516,7 +1536,29 @@ export default function ReportPage() {
                                             onKeyDown={(e) => { if (e.key === "Escape") handleCancelEditing(); }}
                                         />
                                         {saveError && (
-                                            <p className="text-xs text-destructive">{saveError}</p>
+                                            <div className="space-y-1.5">
+                                                <p className="text-xs text-destructive">{saveError.message}</p>
+                                                {saveError.correlationId && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-muted-foreground">Reference ID:</span>
+                                                        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">{saveError.correlationId}</code>
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-6 text-[10px]"
+                                                            onClick={async () => {
+                                                                if (!saveError.correlationId) return;
+                                                                await navigator.clipboard.writeText(saveError.correlationId);
+                                                                setRefIdCopied(true);
+                                                                setTimeout(() => setRefIdCopied(false), 2000);
+                                                            }}
+                                                        >
+                                                            {refIdCopied ? "Copied!" : "Copy"}
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
                                 ) : (
@@ -1695,7 +1737,31 @@ export default function ReportPage() {
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>AI Generation Failed</AlertDialogTitle>
-                        <AlertDialogDescription>{generateError}</AlertDialogDescription>
+                        <AlertDialogDescription asChild>
+                            <div className="space-y-2">
+                                <p>{generateError?.message}</p>
+                                {generateError?.correlationId && (
+                                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                                        <span className="text-xs text-muted-foreground">Reference ID:</span>
+                                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{generateError.correlationId}</code>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 text-xs"
+                                            onClick={async () => {
+                                                if (!generateError?.correlationId) return;
+                                                await navigator.clipboard.writeText(generateError.correlationId);
+                                                setRefIdCopied(true);
+                                                setTimeout(() => setRefIdCopied(false), 2000);
+                                            }}
+                                        >
+                                            {refIdCopied ? "Copied!" : "Copy reference ID"}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogAction onClick={() => setGenerateError(null)}>OK</AlertDialogAction>

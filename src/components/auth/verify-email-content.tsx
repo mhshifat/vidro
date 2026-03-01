@@ -10,12 +10,13 @@ export default function VerifyEmailContent() {
     const searchParams = useSearchParams();
     const token = searchParams.get("token");
     const [error, setError] = useState("");
+    const [correlationId, setCorrelationId] = useState<string | null>(null);
+    const [refIdCopied, setRefIdCopied] = useState(false);
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
     const verifyMutation = trpc.auth.verifyEmail.useMutation({
         onSuccess: () => {
             setStatus("success");
-            // Redirect to dashboard after 2 seconds
             setTimeout(() => {
                 router.push("/dashboard");
                 router.refresh();
@@ -23,9 +24,18 @@ export default function VerifyEmailContent() {
         },
         onError: (e) => {
             setError(e.message);
+            const data = e.data as { correlationId?: string } | undefined;
+            setCorrelationId(data?.correlationId ?? null);
             setStatus("error");
         },
     });
+
+    async function copyCorrelationId() {
+        if (!correlationId) return;
+        await navigator.clipboard.writeText(correlationId);
+        setRefIdCopied(true);
+        setTimeout(() => setRefIdCopied(false), 2000);
+    }
 
     useEffect(() => {
         if (!token) {
@@ -94,6 +104,20 @@ export default function VerifyEmailContent() {
                                 <h1 className="text-2xl font-black tracking-tight">Verification failed</h1>
                                 <p className="text-sm text-muted-foreground">{error}</p>
                             </div>
+                            {correlationId && (
+                                <div className="flex flex-col items-center gap-1.5 w-full pt-2">
+                                    <p className="text-xs text-muted-foreground" title="Share this ID with support if you need help.">
+                                        Reference ID: <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">{correlationId}</code>
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={copyCorrelationId}
+                                        className="rounded-md border border-border bg-muted px-3 py-1.5 text-xs font-medium hover:bg-muted/80"
+                                    >
+                                        {refIdCopied ? "Copied!" : "Copy reference ID"}
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Actions */}
                             <div className="flex flex-col gap-2 pt-4">

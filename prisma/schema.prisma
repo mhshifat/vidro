@@ -80,6 +80,9 @@ model User {
   // User's current active organization (null = personal workspace)
   activeOrganizationId String? @map("active_organization_id")
 
+  // Extension & app preferences (e.g. autoBlurSensitiveFields for recording)
+  preferences Json? @default("{}") @map("preferences")
+
   reports              Report[]
   comments             Comment[]
   reportActions        ReportAction[]

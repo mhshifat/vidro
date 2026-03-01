@@ -138,8 +138,11 @@ export function DashboardContent({
                 fetchUsage();
                 setDeleteError(null);
             } else {
-                const correlationId = res.headers.get("x-correlation-id") || undefined;
-                setDeleteError({ message: "Failed to delete report.", correlationId });
+                const body = await res.json().catch(() => ({})) as { error?: string; correlationId?: string };
+                setDeleteError({
+                    message: body.error ?? "Failed to delete report.",
+                    correlationId: body.correlationId,
+                });
             }
         } catch (err) {
             setDeleteError({ message: "Failed to delete report.", correlationId: undefined });
@@ -190,10 +193,17 @@ export function DashboardContent({
                             </div>
                             <h1 className="text-base font-bold tracking-tight">Vidro</h1>
                         </Link>
-                        <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
-                            {Icons.logout()}
-                            Sign Out
-                        </Button>
+                        <div className="flex items-center gap-1">
+                            <Link href="/dashboard/settings">
+                                <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground">
+                                    Settings
+                                </Button>
+                            </Link>
+                            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-1.5 text-muted-foreground hover:text-foreground">
+                                {Icons.logout()}
+                                Sign Out
+                            </Button>
+                        </div>
                     </div>
                 </header>
 

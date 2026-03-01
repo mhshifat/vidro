@@ -11,6 +11,7 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ErrorAlert } from "@/components/shared/error-tooltip";
 
 /* ─── Types ────────────────────────────────────────────────────── */
 
@@ -291,7 +292,8 @@ export function AIInsightsPanel({
     const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
     const [duplicates, setDuplicates] = useState<DuplicateCandidate[]>([]);
     const [loadingDuplicates, setLoadingDuplicates] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    type ErrorState = { message: string; correlationId?: string } | null;
+    const [error, setError] = useState<ErrorState>(null);
     const [runAllLoading, setRunAllLoading] = useState(false);
 
     const runInsight = useCallback(async (type: InsightType) => {
@@ -304,8 +306,12 @@ export function AIInsightsPanel({
                 body: JSON.stringify({ reportId, type }),
             });
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || err.error || "Analysis failed");
+                const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; correlationId?: string };
+                setError({
+                    message: body.detail || body.error || "Analysis failed",
+                    correlationId: body.correlationId,
+                });
+                return;
             }
             const data = await res.json();
             // Map response to insight fields
@@ -348,7 +354,7 @@ export function AIInsightsPanel({
                     break;
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Analysis failed");
+            setError({ message: err instanceof Error ? err.message : "Analysis failed" });
         } finally {
             setLoadingMap(prev => ({ ...prev, [type]: false }));
         }
@@ -364,13 +370,17 @@ export function AIInsightsPanel({
                 body: JSON.stringify({ reportId }),
             });
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.detail || err.error || "Duplicate detection failed");
+                const body = await res.json().catch(() => ({})) as { error?: string; detail?: string; correlationId?: string };
+                setError({
+                    message: body.detail || body.error || "Duplicate detection failed",
+                    correlationId: body.correlationId,
+                });
+                return;
             }
             const data = await res.json();
             setDuplicates(data.duplicates || []);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Duplicate detection failed");
+            setError({ message: err instanceof Error ? err.message : "Duplicate detection failed" });
         } finally {
             setLoadingDuplicates(false);
         }
@@ -557,9 +567,13 @@ export function AIInsightsPanel({
 
                 {/* ── Error ─────────────────────────────────────── */}
                 {error && (
-                    <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-2.5 text-sm text-destructive animate-in fade-in duration-200">
-                        {error}
-                    </div>
+                    <ErrorAlert
+                        title="Error"
+                        message={error.message}
+                        correlationId={error.correlationId}
+                        onDismiss={() => setError(null)}
+                        className="animate-in fade-in duration-200"
+                    />
                 )}
 
                 {/* ── Results ──────────────────────────────────── */}

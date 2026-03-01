@@ -14,9 +14,25 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ErrorAlert } from "@/components/shared/error-tooltip";
 import type { ReportActionType } from "@/entities/report-action";
 
 const PAGE_SIZE = 15;
+
+function ReportActionErrorState({ error }: { error: { message: string; data?: { correlationId?: string } } | null }) {
+    const message = error?.message ?? "Failed to load action history";
+    const correlationId = error?.data?.correlationId;
+    return (
+        <div className="flex items-center justify-center py-16 px-4">
+            <ErrorAlert
+                title="Failed to load action history"
+                message={message}
+                correlationId={correlationId}
+                className="max-w-md"
+            />
+        </div>
+    );
+}
 
 interface ReportActionTimelineProps {
     reportId: string;
@@ -218,7 +234,7 @@ export function ReportActionTimeline({ reportId }: ReportActionTimelineProps) {
     const [page, setPage] = useState(1);
     const [filterType, setFilterType] = useState<ReportActionType | undefined>(undefined);
 
-    const { data, isLoading, isError } = trpc.reportAction.list.useQuery(
+    const { data, isLoading, isError, error } = trpc.reportAction.list.useQuery(
         {
             reportId,
             page,
@@ -265,9 +281,7 @@ export function ReportActionTimeline({ reportId }: ReportActionTimelineProps) {
             {isLoading ? (
                 <TimelineSkeleton />
             ) : isError ? (
-                <div className="flex items-center justify-center py-16 text-muted-foreground">
-                    <p className="text-sm">Failed to load action history</p>
-                </div>
+                <ReportActionErrorState error={error} />
             ) : !data || data.actions.length === 0 ? (
                 <TimelineEmptyState />
             ) : (

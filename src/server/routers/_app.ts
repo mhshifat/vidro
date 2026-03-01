@@ -4,6 +4,7 @@ import { reportRouter } from "./report";
 import { commentRouter } from "./comment";
 import { organizationRouter } from "./organization";
 import { reportActionRouter } from "./report-action";
+import { userRouter } from "./user";
 
 export const appRouter = router({
     health: publicProcedure.query(() => {
@@ -14,6 +15,7 @@ export const appRouter = router({
     comment: commentRouter,
     organization: organizationRouter,
     reportAction: reportActionRouter,
+    user: userRouter,
 });
 
 export type AppRouter = typeof appRouter;

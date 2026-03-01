@@ -106,7 +106,9 @@ function NewReportPageInner() {
     });
     const [activeLogTab, setActiveLogTab] = useState("console");
     const [saving, setSaving] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
+    type ErrorState = { message: string; correlationId?: string } | null;
+    const [saveError, setSaveError] = useState<ErrorState>(null);
+    const [refIdCopied, setRefIdCopied] = useState(false);
     const [copiedImage, setCopiedImage] = useState(false);
     const retryTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -253,11 +255,11 @@ function NewReportPageInner() {
             });
 
             if (!signRes.ok) {
-                const signErr = await signRes.json().catch(() => ({}));
-                const detail = signErr.detail || signErr.error || 'Upload failed';
-                setSaveError(signRes.status === 401
-                    ? 'You are not logged in. Please log in and try again.'
-                    : detail);
+                const signErr = await signRes.json().catch(() => ({})) as { error?: string; detail?: string; correlationId?: string };
+                const message = signRes.status === 401
+                    ? "You are not logged in. Please log in and try again."
+                    : (signErr.detail || signErr.error || "Upload failed");
+                setSaveError({ message, correlationId: signErr.correlationId });
                 setSaving(false);
                 return;
             }
@@ -282,7 +284,9 @@ function NewReportPageInner() {
             if (!cloudinaryRes.ok) {
                 const cloudErr = await cloudinaryRes.json().catch(() => ({}));
                 console.error('[Vidro] Cloudinary upload failed:', cloudErr);
-                setSaveError(cloudErr?.error?.message || 'Upload to storage failed. Please try again.');
+                setSaveError({
+                    message: (cloudErr as { error?: { message?: string } })?.error?.message || "Upload to storage failed. Please try again.",
+                });
                 setSaving(false);
                 return;
             }
@@ -328,8 +332,11 @@ function NewReportPageInner() {
             });
 
             if (!reportRes.ok) {
-                const reportErr = await reportRes.json().catch(() => ({}));
-                setSaveError(reportErr.error || 'Failed to save report. Please try again.');
+                const reportErr = await reportRes.json().catch(() => ({})) as { error?: string; correlationId?: string };
+                setSaveError({
+                    message: reportErr.error || "Failed to save report. Please try again.",
+                    correlationId: reportErr.correlationId,
+                });
                 setSaving(false);
                 return;
             }
@@ -347,7 +354,7 @@ function NewReportPageInner() {
             router.push(`/report/${report.id}`);
         } catch (err) {
             console.error('Save failed:', err);
-            setSaveError('An unexpected error occurred. Please check your connection and try again.');
+            setSaveError({ message: "An unexpected error occurred. Please check your connection and try again." });
             setSaving(false);
         }
     };
@@ -515,8 +522,28 @@ function NewReportPageInner() {
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-5 shrink-0 text-destructive mt-0.5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
-                            <span className="flex-1 text-destructive">{saveError}</span>
-                            <button onClick={() => setSaveError(null)} className="text-destructive/60 hover:text-destructive transition-colors">
+                            <div className="flex-1 space-y-1.5">
+                                <span className="text-destructive">{saveError.message}</span>
+                                {saveError.correlationId && (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-xs text-muted-foreground">Reference ID:</span>
+                                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{saveError.correlationId}</code>
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (!saveError.correlationId) return;
+                                                await navigator.clipboard.writeText(saveError.correlationId);
+                                                setRefIdCopied(true);
+                                                setTimeout(() => setRefIdCopied(false), 2000);
+                                            }}
+                                            className="text-xs underline text-muted-foreground hover:text-foreground"
+                                        >
+                                            {refIdCopied ? "Copied!" : "Copy"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            <button onClick={() => setSaveError(null)} className="text-destructive/60 hover:text-destructive transition-colors shrink-0">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="size-4">
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
